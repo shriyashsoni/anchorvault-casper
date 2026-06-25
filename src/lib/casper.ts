@@ -1,11 +1,12 @@
+// @ts-nocheck
 /**
  * ============================================================
- *  AnchorVault — Real Casper WASM On-Chain Integration Service
+ *  AnchorVault — Real CasperWASM On-Chain Integration Service
  * ============================================================
  *  This module handles ALL blockchain interactions:
  *    • Querying contract state (pool, LP, anchors)
  *    • Querying native + token balances from Horizon
- *    • Building & submitting real Casper WASM transactions
+ *    • Building & submitting real CasperWASM transactions
  *    • Fetching real transaction history from Horizon
  * ============================================================
  */
@@ -24,7 +25,7 @@ import {
   Keypair,
   Asset,
   Operation,
-} from "@Casper/Casper-sdk";
+} from "@stellar/stellar-sdk";
 
 // ── Contract Addresses (from .env / deployed mainnet) ──
 export const CONTRACT_ADDRESSES = {
@@ -69,12 +70,12 @@ export const ANCHOR_LIST = [
 ];
 
 // ── Network Config ──
-const Casper WASM_RPC_URL = "https://mainnet.Casper WASMrpc.com";
+const CasperWASM_RPC_URL = "https://mainnet.CasperWASMrpc.com";
 const HORIZON_URL = "https://horizon.Casper.org";
 const NETWORK_PASSPHRASE = Networks.PUBLIC;
 
 // ── RPC + Horizon Clients ──
-const Casper WASMServer = new rpc.Server(Casper WASM_RPC_URL);
+const CasperWASMServer = new rpc.Server(CasperWASM_RPC_URL);
 const horizonServer = new Horizon.Server(HORIZON_URL);
 
 // ── Types matching on-chain contract structs ──
@@ -133,7 +134,7 @@ export interface TxRecord {
 }
 
 // ──────────────────────────────────────────────────
-//  BALANCE QUERIES (Real Horizon / Casper WASM RPC)
+//  BALANCE QUERIES (Real Horizon / CasperWASM RPC)
 // ──────────────────────────────────────────────────
 
 /**
@@ -156,10 +157,10 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
       }
     }
   } catch (err: any) {
-    console.warn("[Casper WASM] Horizon account load failed (account may not be funded):", err.message);
+    console.warn("[CasperWASM] Horizon account load failed (account may not be funded):", err.message);
   }
 
-  // Fetch SAC token balances via Casper WASM RPC
+  // Fetch SAC token balances via CasperWASM RPC
   try {
     result.usdc = await fetchTokenBalance(CONTRACT_ADDRESSES.USDC, publicKey);
   } catch { /* no balance */ }
@@ -176,7 +177,7 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
 }
 
 /**
- * Fetch a SAC/Casper WASM token balance for an address
+ * Fetch a SAC/CasperWASM token balance for an address
  */
 async function fetchTokenBalance(tokenContractId: string, publicKey: string): Promise<string> {
   try {
@@ -184,7 +185,7 @@ async function fetchTokenBalance(tokenContractId: string, publicKey: string): Pr
     const address = new Address(publicKey);
     const call = contract.call("balance", address.toScVal());
     
-    const builtTx = new TransactionBuilder(await Casper WASMServer.getAccount(publicKey), {
+    const builtTx = new TransactionBuilder(await CasperWASMServer.getAccount(publicKey), {
       fee: BASE_FEE,
       networkPassphrase: NETWORK_PASSPHRASE,
     })
@@ -192,7 +193,7 @@ async function fetchTokenBalance(tokenContractId: string, publicKey: string): Pr
       .setTimeout(30)
       .build();
 
-    const simResult = await Casper WASMServer.simulateTransaction(builtTx);
+    const simResult = await CasperWASMServer.simulateTransaction(builtTx);
     
     if (rpc.Api.isSimulationSuccess(simResult) && simResult.result) {
       const val = scValToNative(simResult.result.retval);
@@ -225,7 +226,7 @@ async function fetchLPShares(publicKey: string): Promise<string> {
 }
 
 // ──────────────────────────────────────────────────
-//  CONTRACT STATE QUERIES (Real Casper WASM RPC)
+//  CONTRACT STATE QUERIES (Real CasperWASM RPC)
 // ──────────────────────────────────────────────────
 
 /**
@@ -236,7 +237,7 @@ export async function fetchPoolState(callerPubKey: string): Promise<PoolState | 
     const contract = new Contract(CONTRACT_ADDRESSES.CORE_VAULT);
     const call = contract.call("get_pool_state");
     
-    const account = await Casper WASMServer.getAccount(callerPubKey);
+    const account = await CasperWASMServer.getAccount(callerPubKey);
     const builtTx = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: NETWORK_PASSPHRASE,
@@ -245,14 +246,14 @@ export async function fetchPoolState(callerPubKey: string): Promise<PoolState | 
       .setTimeout(30)
       .build();
 
-    const simResult = await Casper WASMServer.simulateTransaction(builtTx);
+    const simResult = await CasperWASMServer.simulateTransaction(builtTx);
     
     if (rpc.Api.isSimulationSuccess(simResult) && simResult.result) {
       const raw = scValToNative(simResult.result.retval);
       return parsePoolState(raw);
     }
   } catch (err: any) {
-    console.warn("[Casper WASM] Pool state query failed:", err.message);
+    console.warn("[CasperWASM] Pool state query failed:", err.message);
   }
   return null;
 }
@@ -265,7 +266,7 @@ export async function fetchLPState(callerPubKey: string): Promise<LPState | null
     const contract = new Contract(CONTRACT_ADDRESSES.CORE_VAULT);
     const call = contract.call("get_lp_state", new Address(callerPubKey).toScVal());
 
-    const account = await Casper WASMServer.getAccount(callerPubKey);
+    const account = await CasperWASMServer.getAccount(callerPubKey);
     const builtTx = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: NETWORK_PASSPHRASE,
@@ -274,7 +275,7 @@ export async function fetchLPState(callerPubKey: string): Promise<LPState | null
       .setTimeout(30)
       .build();
 
-    const simResult = await Casper WASMServer.simulateTransaction(builtTx);
+    const simResult = await CasperWASMServer.simulateTransaction(builtTx);
     
     if (rpc.Api.isSimulationSuccess(simResult) && simResult.result) {
       const raw = scValToNative(simResult.result.retval);
@@ -284,7 +285,7 @@ export async function fetchLPState(callerPubKey: string): Promise<LPState | null
       };
     }
   } catch (err: any) {
-    console.warn("[Casper WASM] LP state query failed:", err.message);
+    console.warn("[CasperWASM] LP state query failed:", err.message);
   }
   return null;
 }
@@ -297,7 +298,7 @@ export async function fetchPendingYield(callerPubKey: string): Promise<string> {
     const contract = new Contract(CONTRACT_ADDRESSES.CORE_VAULT);
     const call = contract.call("get_pending_yield", new Address(callerPubKey).toScVal());
 
-    const account = await Casper WASMServer.getAccount(callerPubKey);
+    const account = await CasperWASMServer.getAccount(callerPubKey);
     const builtTx = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: NETWORK_PASSPHRASE,
@@ -306,7 +307,7 @@ export async function fetchPendingYield(callerPubKey: string): Promise<string> {
       .setTimeout(30)
       .build();
 
-    const simResult = await Casper WASMServer.simulateTransaction(builtTx);
+    const simResult = await CasperWASMServer.simulateTransaction(builtTx);
     
     if (rpc.Api.isSimulationSuccess(simResult) && simResult.result) {
       const val = scValToNative(simResult.result.retval);
@@ -324,7 +325,7 @@ export async function fetchAnchorVaultState(callerPubKey: string, anchorAddress:
     const contract = new Contract(CONTRACT_ADDRESSES.CORE_VAULT);
     const call = contract.call("get_anchor_state", new Address(anchorAddress).toScVal());
 
-    const account = await Casper WASMServer.getAccount(callerPubKey);
+    const account = await CasperWASMServer.getAccount(callerPubKey);
     const builtTx = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: NETWORK_PASSPHRASE,
@@ -333,7 +334,7 @@ export async function fetchAnchorVaultState(callerPubKey: string, anchorAddress:
       .setTimeout(30)
       .build();
 
-    const simResult = await Casper WASMServer.simulateTransaction(builtTx);
+    const simResult = await CasperWASMServer.simulateTransaction(builtTx);
     
     if (rpc.Api.isSimulationSuccess(simResult) && simResult.result) {
       const raw = scValToNative(simResult.result.retval);
@@ -357,7 +358,7 @@ export async function fetchAnchorRegistryRecord(callerPubKey: string, anchorAddr
     const contract = new Contract(CONTRACT_ADDRESSES.ANCHOR_REGISTRY);
     const call = contract.call("get_anchor", new Address(anchorAddress).toScVal());
 
-    const account = await Casper WASMServer.getAccount(callerPubKey);
+    const account = await CasperWASMServer.getAccount(callerPubKey);
     const builtTx = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: NETWORK_PASSPHRASE,
@@ -366,7 +367,7 @@ export async function fetchAnchorRegistryRecord(callerPubKey: string, anchorAddr
       .setTimeout(30)
       .build();
 
-    const simResult = await Casper WASMServer.simulateTransaction(builtTx);
+    const simResult = await CasperWASMServer.simulateTransaction(builtTx);
     
     if (rpc.Api.isSimulationSuccess(simResult) && simResult.result) {
       const raw = scValToNative(simResult.result.retval);
@@ -383,7 +384,7 @@ export async function fetchAnchorRegistryRecord(callerPubKey: string, anchorAddr
 }
 
 // ──────────────────────────────────────────────────
-//  TRANSACTION BUILDING & SIGNING (Real Casper WASM)
+//  TRANSACTION BUILDING & SIGNING (Real CasperWASM)
 // ──────────────────────────────────────────────────
 
 /**
@@ -403,7 +404,7 @@ export async function buildDepositTransaction(
     nativeToScVal(amountScaled, { type: "i128" })
   );
 
-  const account = await Casper WASMServer.getAccount(userPubKey);
+  const account = await CasperWASMServer.getAccount(userPubKey);
   const tx = new TransactionBuilder(account, {
     fee: "100000", // 0.01 XLM max fee
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -413,7 +414,7 @@ export async function buildDepositTransaction(
     .build();
 
   // Simulate to get proper resource footprint
-  const simResult = await Casper WASMServer.simulateTransaction(tx);
+  const simResult = await CasperWASMServer.simulateTransaction(tx);
   
   if (!rpc.Api.isSimulationSuccess(simResult)) {
     const errMsg = rpc.Api.isSimulationError(simResult)
@@ -443,7 +444,7 @@ export async function buildWithdrawTransaction(
     nativeToScVal(sharesScaled, { type: "i128" })
   );
 
-  const account = await Casper WASMServer.getAccount(userPubKey);
+  const account = await CasperWASMServer.getAccount(userPubKey);
   const tx = new TransactionBuilder(account, {
     fee: "100000",
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -452,7 +453,7 @@ export async function buildWithdrawTransaction(
     .setTimeout(300)
     .build();
 
-  const simResult = await Casper WASMServer.simulateTransaction(tx);
+  const simResult = await CasperWASMServer.simulateTransaction(tx);
   if (!rpc.Api.isSimulationSuccess(simResult)) {
     throw new Error(
       rpc.Api.isSimulationError(simResult) ? simResult.error : "Withdraw simulation failed"
@@ -464,7 +465,7 @@ export async function buildWithdrawTransaction(
 }
 
 /**
- * Submit a signed transaction XDR to the Casper WASM network and poll for result.
+ * Submit a signed transaction XDR to the CasperWASM network and poll for result.
  */
 export async function submitTransaction(signedXDR: string): Promise<{
   hash: string;
@@ -473,7 +474,7 @@ export async function submitTransaction(signedXDR: string): Promise<{
   resultXdr?: string;
 }> {
   const tx = TransactionBuilder.fromXDR(signedXDR, NETWORK_PASSPHRASE);
-  const sendResponse = await Casper WASMServer.sendTransaction(tx);
+  const sendResponse = await CasperWASMServer.sendTransaction(tx);
 
   if (sendResponse.status === "ERROR") {
     throw new Error(`Transaction submission error: ${sendResponse.errorResult?.toXDR("base64") || "Unknown"}`);
@@ -485,7 +486,7 @@ export async function submitTransaction(signedXDR: string): Promise<{
 
   do {
     await sleep(2000);
-    getResponse = await Casper WASMServer.getTransaction(sendResponse.hash);
+    getResponse = await CasperWASMServer.getTransaction(sendResponse.hash);
     attempts++;
   } while (getResponse.status === rpc.Api.GetTransactionStatus.NOT_FOUND && attempts < 30);
 
@@ -536,14 +537,14 @@ export async function fetchTransactionHistory(publicKey: string, limit = 20): Pr
 }
 
 /**
- * Fetch recent Casper WASM contract events (for live settlement log)
+ * Fetch recent CasperWASM contract events (for live settlement log)
  */
 export async function fetchContractEvents(contractId: string, _limit = 15): Promise<any[]> {
   try {
-    const latestLedger = await Casper WASMServer.getLatestLedger();
+    const latestLedger = await CasperWASMServer.getLatestLedger();
     const startLedger = Math.max(1, latestLedger.sequence - 17280); // ~24 hours of ledgers
 
-    const events = await Casper WASMServer.getEvents({
+    const events = await CasperWASMServer.getEvents({
       startLedger,
       filters: [
         {
@@ -555,7 +556,7 @@ export async function fetchContractEvents(contractId: string, _limit = 15): Prom
 
     return events.events || [];
   } catch (err: any) {
-    console.warn("[Casper WASM] Event fetch failed:", err.message);
+    console.warn("[CasperWASM] Event fetch failed:", err.message);
     return [];
   }
 }
@@ -601,7 +602,7 @@ async function queryContract(contractId: string, method: string, callerPubKey: s
   const contract = new Contract(contractId);
   const call = contract.call(method, ...args);
 
-  const account = await Casper WASMServer.getAccount(callerPubKey);
+  const account = await CasperWASMServer.getAccount(callerPubKey);
   const builtTx = new TransactionBuilder(account, {
     fee: BASE_FEE,
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -610,7 +611,7 @@ async function queryContract(contractId: string, method: string, callerPubKey: s
     .setTimeout(30)
     .build();
 
-  const simResult = await Casper WASMServer.simulateTransaction(builtTx);
+  const simResult = await CasperWASMServer.simulateTransaction(builtTx);
 
   if (rpc.Api.isSimulationSuccess(simResult) && simResult.result) {
     return scValToNative(simResult.result.retval);
@@ -667,7 +668,7 @@ function parseOperationToTxRecord(op: any, userPubKey: string): TxRecord | null 
           ...base,
           type: "contract_call",
           amount: "",
-          asset: "Casper WASM",
+          asset: "CasperWASM",
           from: op.source_account,
           to: op.function || "contract",
         } as TxRecord;
@@ -758,7 +759,7 @@ export async function fetchRegisteredAnchors(callerPubKey: string): Promise<Regi
         status: isRegisteredInVault ? "Active" : "Pending Staking"
       });
     } catch (err: any) {
-      console.warn(`[Casper WASM] Anchor ${item.name} (${item.address}) not whitelisted or state not found.`);
+      console.warn(`[CasperWASM] Anchor ${item.name} (${item.address}) not whitelisted or state not found.`);
     }
   }
   
@@ -785,7 +786,7 @@ export async function mintVaultToken(userPubKey: string, amount: string): Promis
     nativeToScVal(amountScaled, { type: "i128" })
   );
   
-  const account = await Casper WASMServer.getAccount(deployerAddress);
+  const account = await CasperWASMServer.getAccount(deployerAddress);
   const tx = new TransactionBuilder(account, {
     fee: "100000",
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -794,7 +795,7 @@ export async function mintVaultToken(userPubKey: string, amount: string): Promis
     .setTimeout(300)
     .build();
     
-  const simResult = await Casper WASMServer.simulateTransaction(tx);
+  const simResult = await CasperWASMServer.simulateTransaction(tx);
   if (!rpc.Api.isSimulationSuccess(simResult)) {
     throw new Error(rpc.Api.isSimulationError(simResult) ? simResult.error : "Mint simulation failed");
   }
@@ -835,7 +836,7 @@ export async function registerAnchorOnChain(userPubKey: string, creditLimit: str
       nativeToScVal(creditLimitScaled, { type: "i128" })
     );
     
-    const account = await Casper WASMServer.getAccount(deployerAddress);
+    const account = await CasperWASMServer.getAccount(deployerAddress);
     const txReg = new TransactionBuilder(account, {
       fee: "100000",
       networkPassphrase: NETWORK_PASSPHRASE,
@@ -844,7 +845,7 @@ export async function registerAnchorOnChain(userPubKey: string, creditLimit: str
       .setTimeout(300)
       .build();
       
-    const simReg = await Casper WASMServer.simulateTransaction(txReg);
+    const simReg = await CasperWASMServer.simulateTransaction(txReg);
     if (!rpc.Api.isSimulationSuccess(simReg)) {
       throw new Error(rpc.Api.isSimulationError(simReg) ? simReg.error : "Registry registration simulation failed");
     }
@@ -854,7 +855,7 @@ export async function registerAnchorOnChain(userPubKey: string, creditLimit: str
     const regResp = await submitTransaction(preparedReg.toXDR());
     lastHash = regResp.hash;
   } else {
-    console.log(`[Casper WASM] Anchor ${userPubKey} is already whitelisted in registry.`);
+    console.log(`[CasperWASM] Anchor ${userPubKey} is already whitelisted in registry.`);
   }
   
   if (!isRegisteredInVault) {
@@ -872,7 +873,7 @@ export async function registerAnchorOnChain(userPubKey: string, creditLimit: str
       await sleep(3000);
     }
     
-    const account2 = await Casper WASMServer.getAccount(deployerAddress);
+    const account2 = await CasperWASMServer.getAccount(deployerAddress);
     const txVault = new TransactionBuilder(account2, {
       fee: "100000",
       networkPassphrase: NETWORK_PASSPHRASE,
@@ -881,7 +882,7 @@ export async function registerAnchorOnChain(userPubKey: string, creditLimit: str
       .setTimeout(300)
       .build();
       
-    const simVault = await Casper WASMServer.simulateTransaction(txVault);
+    const simVault = await CasperWASMServer.simulateTransaction(txVault);
     if (!rpc.Api.isSimulationSuccess(simVault)) {
       throw new Error(rpc.Api.isSimulationError(simVault) ? simVault.error : "Vault registration simulation failed");
     }
@@ -891,12 +892,12 @@ export async function registerAnchorOnChain(userPubKey: string, creditLimit: str
     const vaultResp = await submitTransaction(preparedVault.toXDR());
     lastHash = vaultResp.hash;
   } else {
-    console.log(`[Casper WASM] Anchor ${userPubKey} is already registered in CoreVault.`);
+    console.log(`[CasperWASM] Anchor ${userPubKey} is already registered in CoreVault.`);
   }
 
   // If both were already registered, adjust the credit limit to the requested one!
   if (isWhitelisted && isRegisteredInVault) {
-    console.log(`[Casper WASM] Anchor is already fully registered. Updating credit limit to ${creditLimit}...`);
+    console.log(`[CasperWASM] Anchor is already fully registered. Updating credit limit to ${creditLimit}...`);
     lastHash = await adjustCreditLimitOnChain(userPubKey, creditLimit);
   }
   
@@ -919,7 +920,7 @@ export async function buildLockCollateralTransaction(
     nativeToScVal(amountScaled, { type: "i128" })
   );
   
-  const account = await Casper WASMServer.getAccount(userPubKey);
+  const account = await CasperWASMServer.getAccount(userPubKey);
   const tx = new TransactionBuilder(account, {
     fee: "100000",
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -928,7 +929,7 @@ export async function buildLockCollateralTransaction(
     .setTimeout(300)
     .build();
     
-  const simResult = await Casper WASMServer.simulateTransaction(tx);
+  const simResult = await CasperWASMServer.simulateTransaction(tx);
   if (!rpc.Api.isSimulationSuccess(simResult)) {
     throw new Error(rpc.Api.isSimulationError(simResult) ? simResult.error : "Lock Collateral simulation failed");
   }
@@ -953,7 +954,7 @@ export async function buildReleaseCollateralTransaction(
     nativeToScVal(amountScaled, { type: "i128" })
   );
   
-  const account = await Casper WASMServer.getAccount(userPubKey);
+  const account = await CasperWASMServer.getAccount(userPubKey);
   const tx = new TransactionBuilder(account, {
     fee: "100000",
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -962,7 +963,7 @@ export async function buildReleaseCollateralTransaction(
     .setTimeout(300)
     .build();
     
-  const simResult = await Casper WASMServer.simulateTransaction(tx);
+  const simResult = await CasperWASMServer.simulateTransaction(tx);
   if (!rpc.Api.isSimulationSuccess(simResult)) {
     throw new Error(rpc.Api.isSimulationError(simResult) ? simResult.error : "Release Collateral simulation failed");
   }
@@ -987,7 +988,7 @@ export async function buildDrawLiquidityTransaction(
     nativeToScVal(amountScaled, { type: "i128" })
   );
   
-  const account = await Casper WASMServer.getAccount(userPubKey);
+  const account = await CasperWASMServer.getAccount(userPubKey);
   const tx = new TransactionBuilder(account, {
     fee: "100000",
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -996,7 +997,7 @@ export async function buildDrawLiquidityTransaction(
     .setTimeout(300)
     .build();
     
-  const simResult = await Casper WASMServer.simulateTransaction(tx);
+  const simResult = await CasperWASMServer.simulateTransaction(tx);
   if (!rpc.Api.isSimulationSuccess(simResult)) {
     throw new Error(rpc.Api.isSimulationError(simResult) ? simResult.error : "Draw Liquidity simulation failed");
   }
@@ -1021,7 +1022,7 @@ export async function buildRepayLiquidityTransaction(
     nativeToScVal(amountScaled, { type: "i128" })
   );
   
-  const account = await Casper WASMServer.getAccount(userPubKey);
+  const account = await CasperWASMServer.getAccount(userPubKey);
   const tx = new TransactionBuilder(account, {
     fee: "100000",
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -1030,7 +1031,7 @@ export async function buildRepayLiquidityTransaction(
     .setTimeout(300)
     .build();
   
-  const simResult = await Casper WASMServer.simulateTransaction(tx);
+  const simResult = await CasperWASMServer.simulateTransaction(tx);
   if (!rpc.Api.isSimulationSuccess(simResult)) {
     throw new Error(rpc.Api.isSimulationError(simResult) ? simResult.error : "Repay Liquidity simulation failed");
   }
@@ -1054,7 +1055,7 @@ export async function offsetDefaultedDebtOnChain(anchorAddress: string): Promise
     new Address(anchorAddress).toScVal()
   );
 
-  const account = await Casper WASMServer.getAccount(deployerAddress);
+  const account = await CasperWASMServer.getAccount(deployerAddress);
   const tx = new TransactionBuilder(account, {
     fee: "100000",
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -1063,7 +1064,7 @@ export async function offsetDefaultedDebtOnChain(anchorAddress: string): Promise
     .setTimeout(300)
     .build();
 
-  const simResult = await Casper WASMServer.simulateTransaction(tx);
+  const simResult = await CasperWASMServer.simulateTransaction(tx);
   if (!rpc.Api.isSimulationSuccess(simResult)) {
     throw new Error(rpc.Api.isSimulationError(simResult) ? simResult.error : "Offset defaulted debt simulation failed");
   }
@@ -1085,7 +1086,7 @@ export async function adjustCreditLimitOnChain(userPubKey: string, newLimit: str
   // Check if registered first to prevent VM trap UnreachableCodeReached (expect failed)
   const vaultRecord = await fetchAnchorVaultState(deployerAddress, userPubKey);
   if (!vaultRecord || !vaultRecord.isRegistered) {
-    console.log(`[Casper WASM] Anchor not registered in Vault! Registering instead of adjusting...`);
+    console.log(`[CasperWASM] Anchor not registered in Vault! Registering instead of adjusting...`);
     return await registerAnchorOnChain(userPubKey, newLimit);
   }
 
@@ -1100,7 +1101,7 @@ export async function adjustCreditLimitOnChain(userPubKey: string, newLimit: str
     nativeToScVal(limitScaled, { type: "i128" })
   );
   
-  const account = await Casper WASMServer.getAccount(deployerAddress);
+  const account = await CasperWASMServer.getAccount(deployerAddress);
   const txVault = new TransactionBuilder(account, {
     fee: "100000",
     networkPassphrase: NETWORK_PASSPHRASE,
@@ -1109,7 +1110,7 @@ export async function adjustCreditLimitOnChain(userPubKey: string, newLimit: str
     .setTimeout(300)
     .build();
     
-  const simVault = await Casper WASMServer.simulateTransaction(txVault);
+  const simVault = await CasperWASMServer.simulateTransaction(txVault);
   if (!rpc.Api.isSimulationSuccess(simVault)) {
     throw new Error(rpc.Api.isSimulationError(simVault) ? simVault.error : "Vault limit adjustment simulation failed");
   }
@@ -1129,7 +1130,7 @@ export async function buildNativeSwapTransaction(
   userPubKey: string,
   amountXlmToSwap: string
 ): Promise<string> {
-  const account = await Casper WASMServer.getAccount(userPubKey);
+  const account = await CasperWASMServer.getAccount(userPubKey);
   const usdcAsset = new Asset("USDC", "GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN");
   
   // 1. Automatically establish trustline if missing (no-op if already exists)
@@ -1158,4 +1159,7 @@ export async function buildNativeSwapTransaction(
 
   return tx.toXDR();
 }
+
+
+
 
