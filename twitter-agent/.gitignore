@@ -1,0 +1,4 @@
+node_modules/
+.env
+replied_tweets.json
+.DS_Store

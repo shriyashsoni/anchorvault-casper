@@ -1,0 +1,19 @@
+[package]
+name = "anchor_vault"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+casper-contract = "2.0.0"
+casper-types = "2.0.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = false
+panic = "abort"
+lto = true
+codegen-units = 1
