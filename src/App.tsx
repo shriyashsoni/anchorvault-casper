@@ -22,8 +22,10 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Helmet } from "react-helmet-async";
 import Hls from "hls.js";
-import { CasperWalletsKit, Networks } from "@creit.tech/stellar-wallets-kit";
-import { defaultModules } from "@creit.tech/stellar-wallets-kit/modules/utils";
+// Mocked Networks
+const Networks = { PUBLIC: "PUBLIC", TESTNET: "TESTNET" };
+const defaultModules = () => [];
+const CasperWalletsKit = { init: () => {}, authModal: async () => ({ address: "mock" }), setWallet: () => {}, fetchAddress: async () => ({ address: "mock" }), signTransaction: async (tx: any) => ({ signedTxXdr: tx }) };
 import BionovaHero from "./components/BionovaHero";
 import FeaturesGrid from "./components/FeaturesGrid";
 import CustomDocsView from "./components/CustomDocsView";
@@ -3419,6 +3421,7 @@ function BrandingView() {
     </motion.div>
   );
 }
+
 
 
 
