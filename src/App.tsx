@@ -129,13 +129,13 @@ const SUPPORTED_WALLETS = [
     id: "csprclick",
     name: "CSPR.click Portal",
     description: "Premier Casper Developer Kit (Extension, Mobile & WalletConnect)",
-    icon: "https://cspr.live/assets/icons/casper-wallet-logo.svg",
+    icon: "/unnamed.png",
   },
   {
     id: "Casper Wallet",
     name: "Casper Wallet",
     description: "Official Casper Extension",
-    icon: "https://cspr.live/assets/icons/casper-wallet-logo.svg",
+    icon: "/unnamed.png",
   },
 ];
 
@@ -236,7 +236,10 @@ function InfiniteSlider() {
   );
 }
 
+const ClickUI = () => <div id="csprclick-ui"></div>;
+
 export default function App() {
+  const clickRef = typeof window !== 'undefined' ? (window as any).csprclick : null;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentView, setCurrentView] = useState<"home" | "whitepaper" | "privacy" | "terms" | "branding" | "docs">("home");
 
