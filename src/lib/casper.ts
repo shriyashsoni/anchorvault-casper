@@ -132,6 +132,15 @@ export interface TxRecord {
  * Fetch real CSPR + token balances for a wallet address
  */
 export async function fetchWalletBalances(publicKey: string): Promise<WalletBalances> {
+  if (!publicKey || publicKey === "mock") {
+    return {
+      cspr: "0.00",
+      usdc: "0.00",
+      vaultToken: "0.00",
+      lpShares: "0.00",
+    };
+  }
+
   const result: WalletBalances = {
     cspr: "10000.00",
     usdc: "5000.00",
@@ -140,10 +149,8 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
   };
 
   try {
-    if (publicKey && publicKey !== "mock") {
-      const stateRootHash = await casperClient.nodeClient.getStateRootHash();
-      // Additional live node queries can be added here
-    }
+    const stateRootHash = await casperClient.nodeClient.getStateRootHash();
+    // Additional live node queries can be added here
   } catch (err: any) {
     console.warn("[Casper] Balance fetch warning, using active sandbox balances:", err.message);
   }
@@ -373,6 +380,7 @@ export async function offsetDefaultedDebtOnChain(anchorAddress: string): Promise
 // ──────────────────────────────────────────────────
 
 export async function fetchTransactionHistory(publicKey: string, limit = 20): Promise<TxRecord[]> {
+  if (!publicKey || publicKey === "mock") return [];
   return [
     {
       id: "tx-1",
@@ -380,7 +388,7 @@ export async function fetchTransactionHistory(publicKey: string, limit = 20): Pr
       hash: "01a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2",
       amount: "5000.00",
       asset: "USDC",
-      from: publicKey || "02036be8b5983f6b128075dbc840dcb1f5eb4d0e751d7ea1593d785abc094fe45c32",
+      from: publicKey,
       to: CONTRACT_ADDRESSES.CORE_VAULT,
       timestamp: new Date(Date.now() - 3600000).toISOString(),
       status: "success",
@@ -392,7 +400,7 @@ export async function fetchTransactionHistory(publicKey: string, limit = 20): Pr
       hash: "02b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3",
       amount: "150000.00",
       asset: "CSPR",
-      from: publicKey || "02036be8b5983f6b128075dbc840dcb1f5eb4d0e751d7ea1593d785abc094fe45c32",
+      from: publicKey,
       to: CONTRACT_ADDRESSES.ANCHOR_REGISTRY,
       timestamp: new Date(Date.now() - 86400000).toISOString(),
       status: "success",

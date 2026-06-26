@@ -39,11 +39,10 @@ const CasperWalletsKit = {
         }
       } catch (err: any) {
         console.warn("[Casper Wallet] Auth modal request failed:", err.message);
+        throw new Error(`Casper Wallet connection failed: ${err.message}`);
       }
     }
-    const defaultAddr = "02036be8b5983f6b128075dbc840dcb1f5eb4d0e751d7ea1593d785abc094fe45c32";
-    if (typeof window !== 'undefined') window.localStorage.setItem("connected_wallet_address", defaultAddr);
-    return { address: defaultAddr };
+    throw new Error("Casper Wallet extension not detected. Please install Casper Wallet to connect your account.");
   },
   setWallet: (_id: string) => {},
   fetchAddress: async () => {
@@ -57,11 +56,10 @@ const CasperWalletsKit = {
         }
       } catch (err: any) {
         console.warn("[Casper Wallet] Fetch address request failed:", err.message);
+        throw new Error(`Casper Wallet connection failed: ${err.message}`);
       }
     }
-    const defaultAddr = "02036be8b5983f6b128075dbc840dcb1f5eb4d0e751d7ea1593d785abc094fe45c32";
-    if (typeof window !== 'undefined') window.localStorage.setItem("connected_wallet_address", defaultAddr);
-    return { address: defaultAddr };
+    throw new Error("Casper Wallet extension not detected. Please install Casper Wallet to connect your account.");
   },
   signTransaction: async (tx: any, opts: any) => {
     if (typeof window !== 'undefined' && (window as any).CasperWallet && opts?.address && opts.address !== "mock") {
@@ -73,8 +71,7 @@ const CasperWalletsKit = {
         throw new Error(`Casper Wallet signing failed: ${err.message}`);
       }
     }
-    console.log(`[Casper Wallet] Simulation mode: Signing deploy dynamically with connected user wallet (${opts?.address || 'default'})`);
-    return { signedTxXdr: tx };
+    throw new Error("Casper Wallet extension not detected or wallet not connected. Please connect your Casper Wallet to sign transactions.");
   }
 };
 import BionovaHero from "./components/BionovaHero";
@@ -448,7 +445,7 @@ export default function App() {
   const handleCasperWalletsKitConnect = async () => {
     try {
       setConnectingWallet(true);
-      setConnectionMessage("Opening Casper Wallets Kit gateway...");
+      setConnectionMessage("Opening Casper Wallet gateway...");
       
       const modalResult = await CasperWalletsKit.authModal();
       if (modalResult && modalResult.address) {
@@ -458,7 +455,8 @@ export default function App() {
         setSignUpStep(3);
       }
     } catch (err: any) {
-      console.error("Wallet kit connection failed:", err);
+      console.error("Wallet connection failed:", err);
+      alert(err.message || "Could not connect to Casper Wallet. Please ensure the extension is installed, unlocked, and that you have granted permission.");
     } finally {
       setConnectingWallet(false);
     }
@@ -480,7 +478,7 @@ export default function App() {
     } catch (err: any) {
       console.error("Direct wallet connection failed:", err);
       const friendlyName = walletId.charAt(0).toUpperCase() + walletId.slice(1);
-      alert(`Could not connect to ${friendlyName}. Please ensure the extension is installed, unlocked, and that you have granted permission.`);
+      alert(err.message || `Could not connect to ${friendlyName}. Please ensure the extension is installed, unlocked, and that you have granted permission.`);
     } finally {
       setConnectingWallet(false);
     }
