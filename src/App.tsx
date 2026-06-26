@@ -22,46 +22,77 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Helmet } from "react-helmet-async";
 import Hls from "hls.js";
+import { ClickUI, useClickRef } from '@make-software/csprclick-ui';
 
 // Mocked Networks
 const Networks = { PUBLIC: "PUBLIC", TESTNET: "TESTNET" };
 const defaultModules = () => [];
 const CasperWalletsKit = {
   init: () => {},
-  authModal: async () => {
+  authModal: async (clickRef?: any) => {
+    if (clickRef) {
+      try {
+        await clickRef.signIn();
+        const activeAccount = clickRef.getActiveAccount();
+        if (activeAccount?.publicKey) {
+          window.localStorage.setItem("connected_wallet_address", activeAccount.publicKey);
+          return { address: activeAccount.publicKey, provider: activeAccount.provider };
+        }
+      } catch (err: any) {
+        console.warn("[CSPR.click] Sign in request failed:", err.message);
+        throw new Error(`CSPR.click connection failed: ${err.message}`);
+      }
+    }
     if (typeof window !== 'undefined' && (window as any).CasperWallet) {
       try {
         await (window as any).CasperWallet.requestConnection();
         const activePublicKey = await (window as any).CasperWallet.getActivePublicKey();
         if (activePublicKey) {
           window.localStorage.setItem("connected_wallet_address", activePublicKey);
-          return { address: activePublicKey };
+          return { address: activePublicKey, provider: "Casper Wallet" };
         }
       } catch (err: any) {
         console.warn("[Casper Wallet] Auth modal request failed:", err.message);
         throw new Error(`Casper Wallet connection failed: ${err.message}`);
       }
     }
-    throw new Error("Casper Wallet extension not detected. Please install Casper Wallet to connect your account.");
+    throw new Error("Casper Wallet extension not detected. Please install Casper Wallet or use CSPR.click to connect your account.");
   },
   setWallet: (_id: string) => {},
-  fetchAddress: async () => {
+  fetchAddress: async (clickRef?: any) => {
+    if (clickRef) {
+      const activeAccount = clickRef.getActiveAccount();
+      if (activeAccount?.publicKey) {
+        window.localStorage.setItem("connected_wallet_address", activeAccount.publicKey);
+        return { address: activeAccount.publicKey, provider: activeAccount.provider };
+      }
+    }
     if (typeof window !== 'undefined' && (window as any).CasperWallet) {
       try {
         await (window as any).CasperWallet.requestConnection();
         const activePublicKey = await (window as any).CasperWallet.getActivePublicKey();
         if (activePublicKey) {
           window.localStorage.setItem("connected_wallet_address", activePublicKey);
-          return { address: activePublicKey };
+          return { address: activePublicKey, provider: "Casper Wallet" };
         }
       } catch (err: any) {
         console.warn("[Casper Wallet] Fetch address request failed:", err.message);
         throw new Error(`Casper Wallet connection failed: ${err.message}`);
       }
     }
-    throw new Error("Casper Wallet extension not detected. Please install Casper Wallet to connect your account.");
+    throw new Error("Casper Wallet extension not detected. Please install Casper Wallet or use CSPR.click to connect your account.");
   },
   signTransaction: async (tx: any, opts: any) => {
+    if (opts?.clickRef && opts?.address && opts.address !== "mock") {
+      try {
+        const signedDeploy = await opts.clickRef.sign(tx, opts.address);
+        if (signedDeploy) {
+          return { signedTxXdr: signedDeploy };
+        }
+      } catch (err: any) {
+        console.warn("[CSPR.click] Sign request cancelled or failed, falling back to window.CasperWallet:", err.message);
+      }
+    }
     if (typeof window !== 'undefined' && (window as any).CasperWallet && opts?.address && opts.address !== "mock") {
       try {
         const signedDeploy = await (window as any).CasperWallet.sign(tx, opts.address);
@@ -71,7 +102,7 @@ const CasperWalletsKit = {
         throw new Error(`Casper Wallet signing failed: ${err.message}`);
       }
     }
-    throw new Error("Casper Wallet extension not detected or wallet not connected. Please connect your Casper Wallet to sign transactions.");
+    throw new Error("CSPR.click / Casper Wallet extension not detected or wallet not connected. Please connect your Casper Wallet to sign transactions.");
   }
 };
 import BionovaHero from "./components/BionovaHero";
@@ -126,6 +157,12 @@ const TwitterIcon = ({ className = "w-4 h-4" }: { className?: string }) => (
 );
 
 const SUPPORTED_WALLETS = [
+  {
+    id: "csprclick",
+    name: "CSPR.click Portal",
+    description: "Premier Casper Developer Kit (Extension, Mobile & WalletConnect)",
+    icon: "https://cspr.live/assets/icons/casper-wallet-logo.svg",
+  },
   {
     id: "Casper Wallet",
     name: "Casper Wallet",
@@ -232,6 +269,7 @@ function InfiniteSlider() {
 }
 
 export default function App() {
+  const clickRef = useClickRef();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentView, setCurrentView] = useState<"home" | "whitepaper" | "privacy" | "terms" | "branding" | "docs">("home");
 
@@ -445,11 +483,23 @@ export default function App() {
   const handleCasperWalletsKitConnect = async () => {
     try {
       setConnectingWallet(true);
-      setConnectionMessage("Opening Casper Wallet gateway...");
+      setConnectionMessage("Opening CSPR.click gateway...");
       
-      const modalResult = await CasperWalletsKit.authModal();
+      if (clickRef) {
+        await clickRef.signIn();
+        const activeAccount = clickRef.getActiveAccount();
+        if (activeAccount?.publicKey) {
+          setConnectedWalletName(activeAccount.provider || "CSPR.click");
+          setWalletAddress(activeAccount.publicKey);
+          setWalletConnected(true);
+          setSignUpStep(3);
+          return;
+        }
+      }
+
+      const modalResult = await CasperWalletsKit.authModal(clickRef);
       if (modalResult && modalResult.address) {
-        setConnectedWalletName("Casper Wallet");
+        setConnectedWalletName(modalResult.provider || "Casper Wallet");
         setWalletAddress(modalResult.address);
         setWalletConnected(true);
         setSignUpStep(3);
@@ -467,10 +517,22 @@ export default function App() {
       setConnectingWallet(true);
       setConnectionMessage(`Connecting directly to ${walletId.toUpperCase()}...`);
       
+      if (walletId === "csprclick" && clickRef) {
+        await clickRef.signIn();
+        const activeAccount = clickRef.getActiveAccount();
+        if (activeAccount?.publicKey) {
+          setConnectedWalletName(activeAccount.provider || "CSPR.click");
+          setWalletAddress(activeAccount.publicKey);
+          setWalletConnected(true);
+          setSignUpStep(3);
+          return;
+        }
+      }
+
       CasperWalletsKit.setWallet(walletId);
-      const { address } = await CasperWalletsKit.fetchAddress();
+      const { address, provider } = await CasperWalletsKit.fetchAddress(clickRef);
       if (address) {
-        setConnectedWalletName(walletId.toUpperCase());
+        setConnectedWalletName(provider || walletId.toUpperCase());
         setWalletAddress(address);
         setWalletConnected(true);
         setSignUpStep(3);
@@ -491,6 +553,22 @@ export default function App() {
   // Wallet state
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState("");
+
+  // Sync CSPR.click active account
+  useEffect(() => {
+    if (clickRef) {
+      try {
+        const activeAccount = clickRef.getActiveAccount();
+        if (activeAccount?.publicKey) {
+          setWalletAddress(activeAccount.publicKey);
+          setWalletConnected(true);
+          setConnectedWalletName(activeAccount.provider || "CSPR.click");
+        }
+      } catch (err) {
+        console.warn("CSPR.click getActiveAccount warning:", err);
+      }
+    }
+  }, [clickRef]);
 
   // ── REAL ON-CHAIN STATE ──
   const [balances, setBalances] = useState<WalletBalances>({ cspr: "0", usdc: "0", vaultToken: "0", lpShares: "0" });
@@ -606,6 +684,7 @@ export default function App() {
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
         networkPassphrase: "Public Global Casper Network ; September 2015",
         address: walletAddress,
+        clickRef: clickRef,
       });
       setTxProgress(60);
       setTxStep("submitting");
@@ -663,6 +742,7 @@ export default function App() {
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
         networkPassphrase: "Public Global Casper Network ; September 2015",
         address: walletAddress,
+        clickRef: clickRef,
       });
       setTxProgress(60);
       setTxStep("submitting");
@@ -1083,6 +1163,7 @@ export default function App() {
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
         networkPassphrase: "Public Global Casper Network ; September 2015",
         address: walletAddress,
+        clickRef: clickRef,
       });
       setTxProgress(60);
       setTxStep("submitting");
@@ -1134,6 +1215,7 @@ export default function App() {
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
         networkPassphrase: "Public Global Casper Network ; September 2015",
         address: walletAddress,
+        clickRef: clickRef,
       });
       setTxProgress(60);
       setTxStep("submitting");
@@ -1215,6 +1297,7 @@ export default function App() {
 
           {/* Action Buttons (Right, Desktop Only) */}
           <div className="hidden lg:flex items-center gap-4">
+            <ClickUI />
             <button 
               onClick={walletConnected ? () => { setShowDashboard(true); setDashboardTab("overview"); } : handleConnectWallet}
               className="bg-[#7b39fc] rounded-[8px] text-[#fafafa] font-semibold text-sm px-5 py-2.5 hover:bg-[#8b4eff] transition-all shadow-md shadow-[#7b39fc]/20 font-manrope"
@@ -2870,7 +2953,7 @@ export default function App() {
                       className="w-full h-11 relative group overflow-hidden rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 transition-all flex items-center justify-center gap-2 cursor-pointer text-[10px] font-bold uppercase tracking-wider text-neutral-300"
                     >
                       <Globe className="w-3.5 h-3.5 text-purple-400" />
-                      <span>More Options / WalletConnect</span>
+                      <span>CSPR.click / WalletConnect / More Options</span>
                     </button>
                   </div>
                 )}
