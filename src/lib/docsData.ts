@@ -44,7 +44,7 @@ export const DOCS_PAGES: DocPage[] = [
     id: "introduction",
     title: "Welcome to AnchorVault",
     sidebarTitle: "Introduction",
-    description: "AnchorVault is a trustless, on-chain remittance liquidity routing protocol built on Casper Casper WASM.",
+    description: "AnchorVault is a trustless, on-chain remittance liquidity routing protocol built on Casper Network.",
     category: "Getting Started",
     icon: BookOpen,
     content: {
@@ -98,7 +98,7 @@ export const DOCS_PAGES: DocPage[] = [
           text: "Ensure your machine has the following tools installed:",
           accordion: [
             { title: "Rust Toolchain", content: "Requires Rust 1.74+ and WASM compilation targets. Add with: rustup target add wasm32-unknown-unknown." },
-            { title: "Casper Casper WASM CLI", content: "Install the CLI to deploy and manage contracts: cargo install --locked Casper WASM-cli." },
+            { title: "Casper Network CLI", content: "Install the CLI to deploy and manage contracts: cargo install casper-client." },
             { title: "Node.js (v18+)", content: "Used to run keys management, setup, and the high-fidelity Vite frontend dashboard." }
           ]
         },
@@ -113,7 +113,7 @@ export const DOCS_PAGES: DocPage[] = [
         },
         {
           title: "3. Generate and Fund Mainnet Keys",
-          text: "Generate secure keys and fund them with 10k mainnet XLM via Casper Friendbot:",
+          text: "Generate secure keys and fund them with 10k testnet CSPR via Casper Faucet:",
           codeBlock: {
             language: "bash",
             filename: "Terminal",
@@ -559,7 +559,7 @@ export const DOCS_PAGES: DocPage[] = [
           title: "Interactive Deposit Pipeline",
           codeBlock: {
             language: "typescript",
-            code: "import { TransactionBuilder, nativeToScVal } from '@Casper/Casper-sdk';\n\nasync function buildDepositTx(userAddress: string, amount: number) {\n  const sourceAccount = await rpcServer.getLedgerAccount(userAddress);\n  const amountInteger = BigInt(amount * 10 ** 7); // 7 decimal places\n\n  const tx = new TransactionBuilder(sourceAccount, { fee: '100000' })\n    .addOperation(vaultContract.call(\n      'deposit',\n      nativeToScVal(userAddress, { type: 'address' }),\n      nativeToScVal(amountInteger, { type: 'i128' })\n    ))\n    .setTimeout(30)\n    .build();\n\n  return tx.toXDR();\n}"
+            code: "import { CasperClient, Contracts, RuntimeArgs, CLValueBuilder } from 'casper-js-sdk';\n\nasync function buildDepositDeploy(userAddress: string, amount: number) {\n  const casperClient = new CasperClient('https://rpc.mainnet.casperlabs.io/rpc');\n  const contract = new Contracts.Contract(casperClient);\n  contract.setContractHash(CONTRACT_HASH);\n\n  const args = RuntimeArgs.fromMap({\n    'recipient': CLValueBuilder.string(userAddress),\n    'amount': CLValueBuilder.u256(amount * 10 ** 9)\n  });\n\n  const deploy = contract.callEntrypoint('deposit', args, CLValueBuilder.publicKey(userAddress, 'ed25519'), 'casper', '1000000000');\n  return deploy;\n}"
           }
         }
       ]
@@ -605,7 +605,7 @@ export const DOCS_PAGES: DocPage[] = [
           title: "Casper Wallet Signature Flow",
           codeBlock: {
             language: "typescript",
-            code: "import { isConnected, signTransaction } from '@Casper/Casper Wallet-api';\n\nasync function signWithCasper Wallet(txXdr: string) {\n  if (await isConnected()) {\n    const signedXdr = await signTransaction(txXdr, {\n      network: 'MAINNET',\n      networkPassphrase: 'Public Global Casper Network ; September 2015'\n    });\n    return signedXdr;\n  }\n  throw new Error('Casper Wallet Wallet extension not detected.');\n}"
+            code: "async function signWithCasperWallet(deploy: any, activePublicKey: string) {\n  if (window.CasperWallet) {\n    const signedDeploy = await window.CasperWallet.sign(deploy, activePublicKey);\n    return signedDeploy;\n  }\n  throw new Error('Casper Wallet extension not detected.');\n}"
           }
         }
       ]
