@@ -17,6 +17,7 @@
     "@make-software/csprclick-core-types": "^2.1.0",
     "@make-software/csprclick-ui": "^2.1.0",
     "bip39": "^3.1.0",
+    "buffer": "^6.0.3",
     "casper-js-sdk": "^2.15.2",
     "dotenv": "^17.4.2",
     "ed25519-hd-key": "^2.0.0",
