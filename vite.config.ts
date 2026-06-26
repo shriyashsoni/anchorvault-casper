@@ -9,9 +9,11 @@ export default defineConfig({
     nodePolyfills({
       include: ['buffer', 'process', 'util', 'stream', 'events', 'crypto', 'assert'],
       globals: {
-        buffer: true,
+        Buffer: true,
+        global: true,
         process: true,
       },
+      protocolImports: true,
     }),
   ],
   define: {
