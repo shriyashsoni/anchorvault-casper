@@ -13,9 +13,6 @@
     "initialize": "node initialize.js"
   },
   "dependencies": {
-    "@make-software/csprclick-core-client": "^1.11.0",
-    "@make-software/csprclick-core-types": "^2.1.0",
-    "@make-software/csprclick-ui": "^2.1.0",
     "bip39": "^3.1.0",
     "buffer": "^6.0.3",
     "casper-js-sdk": "^2.15.2",

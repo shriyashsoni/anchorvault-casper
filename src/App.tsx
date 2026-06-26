@@ -22,27 +22,12 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Helmet } from "react-helmet-async";
 import Hls from "hls.js";
-import { ClickUI, useClickRef } from '@make-software/csprclick-ui';
-
 // Mocked Networks
 const Networks = { PUBLIC: "PUBLIC", TESTNET: "TESTNET" };
 const defaultModules = () => [];
 const CasperWalletsKit = {
   init: () => {},
-  authModal: async (clickRef?: any) => {
-    if (clickRef) {
-      try {
-        await clickRef.signIn();
-        const activeAccount = clickRef.getActiveAccount();
-        if (activeAccount?.publicKey) {
-          window.localStorage.setItem("connected_wallet_address", activeAccount.publicKey);
-          return { address: activeAccount.publicKey, provider: activeAccount.provider };
-        }
-      } catch (err: any) {
-        console.warn("[CSPR.click] Sign in request failed:", err.message);
-        throw new Error(`CSPR.click connection failed: ${err.message}`);
-      }
-    }
+  authModal: async () => {
     if (typeof window !== 'undefined' && (window as any).CasperWallet) {
       try {
         await (window as any).CasperWallet.requestConnection();
@@ -56,17 +41,10 @@ const CasperWalletsKit = {
         throw new Error(`Casper Wallet connection failed: ${err.message}`);
       }
     }
-    throw new Error("Casper Wallet extension not detected. Please install Casper Wallet or use CSPR.click to connect your account.");
+    throw new Error("Casper Wallet extension not detected. Please install the Casper Wallet browser extension.");
   },
   setWallet: (_id: string) => {},
-  fetchAddress: async (clickRef?: any) => {
-    if (clickRef) {
-      const activeAccount = clickRef.getActiveAccount();
-      if (activeAccount?.publicKey) {
-        window.localStorage.setItem("connected_wallet_address", activeAccount.publicKey);
-        return { address: activeAccount.publicKey, provider: activeAccount.provider };
-      }
-    }
+  fetchAddress: async () => {
     if (typeof window !== 'undefined' && (window as any).CasperWallet) {
       try {
         await (window as any).CasperWallet.requestConnection();
@@ -76,33 +54,23 @@ const CasperWalletsKit = {
           return { address: activePublicKey, provider: "Casper Wallet" };
         }
       } catch (err: any) {
-        console.warn("[Casper Wallet] Fetch address request failed:", err.message);
+        console.warn("[Casper Wallet] Fetch address failed:", err.message);
         throw new Error(`Casper Wallet connection failed: ${err.message}`);
       }
     }
-    throw new Error("Casper Wallet extension not detected. Please install Casper Wallet or use CSPR.click to connect your account.");
+    throw new Error("Casper Wallet extension not detected. Please install the Casper Wallet browser extension.");
   },
   signTransaction: async (tx: any, opts: any) => {
-    if (opts?.clickRef && opts?.address && opts.address !== "mock") {
-      try {
-        const signedDeploy = await opts.clickRef.sign(tx, opts.address);
-        if (signedDeploy) {
-          return { signedTxXdr: signedDeploy };
-        }
-      } catch (err: any) {
-        console.warn("[CSPR.click] Sign request cancelled or failed, falling back to window.CasperWallet:", err.message);
-      }
-    }
     if (typeof window !== 'undefined' && (window as any).CasperWallet && opts?.address && opts.address !== "mock") {
       try {
         const signedDeploy = await (window as any).CasperWallet.sign(tx, opts.address);
         return { signedTxXdr: signedDeploy };
       } catch (err: any) {
-        console.warn("[Casper Wallet] Sign request cancelled or failed:", err.message);
+        console.warn("[Casper Wallet] Sign failed:", err.message);
         throw new Error(`Casper Wallet signing failed: ${err.message}`);
       }
     }
-    throw new Error("CSPR.click / Casper Wallet extension not detected or wallet not connected. Please connect your Casper Wallet to sign transactions.");
+    throw new Error("Casper Wallet not connected. Please connect your wallet first.");
   }
 };
 import BionovaHero from "./components/BionovaHero";
@@ -269,7 +237,6 @@ function InfiniteSlider() {
 }
 
 export default function App() {
-  const clickRef = useClickRef();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [currentView, setCurrentView] = useState<"home" | "whitepaper" | "privacy" | "terms" | "branding" | "docs">("home");
 
