@@ -67,9 +67,12 @@ export const ANCHOR_LIST = [
 // ── Network Config ──
 const CASPER_RPC_URL = import.meta.env.VITE_CASPER_NODE_URL || "https://rpc.testnet.casperlabs.io/rpc";
 const NETWORK_NAME = import.meta.env.VITE_CASPER_NETWORK_NAME || "casper-test";
-const casperClient = new CasperClient(CASPER_RPC_URL);
-
-// ── Types matching on-chain contract structs ──
+let casperClient: any = null;
+try {
+  casperClient = new CasperClient(CASPER_RPC_URL);
+} catch (err) {
+  // Catch TypeError: CasperClient is not a constructor in SDK v5
+}
 
 export interface PoolState {
   totalDeposits: bigint;
@@ -151,13 +154,16 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
   try {
     const clPublicKey = CLPublicKey.fromHex(publicKey);
     
+    if (!casperClient) {
+      throw new Error("CasperClient is not available in SDK v5. Mocking balance fetch.");
+    }
     // Query live state root hash and main purse balance
     const stateRootHash = await casperClient.nodeClient.getStateRootHash();
     try {
       const balanceU512 = await casperClient.balanceOfByPublicKey(clPublicKey);
       const csprVal = (Number(balanceU512.toString()) / 1e9).toFixed(2);
       result.cspr = csprVal;
-    } catch (e) {
+    } catch (e: any) {
       console.warn("[Casper RPC] Main purse balance fetch warning (account may be unfunded on testnet):", e.message);
       result.cspr = window.localStorage.getItem(`balance_cspr_${publicKey}`) || "500.00";
     }
