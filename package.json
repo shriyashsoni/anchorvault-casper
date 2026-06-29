@@ -15,7 +15,7 @@
   "dependencies": {
     "bip39": "^3.1.0",
     "buffer": "^6.0.3",
-    "casper-js-sdk": "^2.15.2",
+    "casper-js-sdk": "^5.0.12",
     "dotenv": "^17.4.2",
     "ed25519-hd-key": "^2.0.0",
     "hls.js": "^1.6.16",

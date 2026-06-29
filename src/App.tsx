@@ -169,10 +169,16 @@ const SUPPORTED_WALLETS = [
   },
   {
     id: "Casper Wallet",
-    name: "Casper Wallet",
+    name: "Casper Wallet (Testnet)",
     description: "Official Casper Extension",
     icon: "/unnamed.png",
   },
+  {
+    id: "metamask",
+    name: "MetaMask",
+    description: "Connect via MetaMask",
+    icon: "https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg",
+  }
 ];
 
 // ===================================================================
@@ -522,6 +528,23 @@ export default function App() {
     try {
       setConnectingWallet(true);
       setConnectionMessage(`Connecting directly to ${walletId.toUpperCase()}...`);
+
+      if (walletId === "metamask") {
+        if (typeof (window as any).ethereum !== 'undefined') {
+          const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+          if (accounts && accounts.length > 0) {
+            setConnectedWalletName("MetaMask");
+            // Standardizing the address format for mock UI usage
+            const ethAddr = accounts[0];
+            setWalletAddress(ethAddr);
+            setWalletConnected(true);
+            setSignUpStep(3);
+            return;
+          }
+        } else {
+          throw new Error("MetaMask is not installed. Please install MetaMask to use this feature.");
+        }
+      }
       
       if (walletId === "csprclick" && clickRef) {
         await clickRef.signIn();
@@ -1741,26 +1764,26 @@ export default function App() {
             </div>
 
             {/* Modal Layout: Sidebar & Content */}
-            <div className="flex flex-1 overflow-hidden">
+            <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
               
               {/* Sidebar Tabs */}
-              <div className="w-1/4 border-r border-white/5 p-4 flex flex-col gap-2 bg-neutral-900/10">
+              <div className="w-full md:w-1/4 border-b md:border-b-0 md:border-r border-white/5 p-4 flex flex-row md:flex-col gap-2 bg-neutral-900/10 overflow-x-auto shrink-0">
                 {[
-                  { id: "overview", icon: <Activity className="h-4 w-4" />, label: "Overview" },
-                  { id: "deposit", icon: <Coins className="h-4 w-4" />, label: "Deposit & Earn" },
-                  { id: "quick-swap", icon: <RefreshCw className="h-4 w-4 text-emerald-400" />, label: "Quick Swap (Zapper)" },
-                  { id: "withdraw", icon: <ArrowDownLeft className="h-4 w-4" />, label: "Withdraw" },
-                  { id: "anchor-portal", icon: <Globe className="h-4 w-4" />, label: "Anchor Operations" },
-                  { id: "sandbox", icon: <RefreshCw className="h-4 w-4" />, label: "Casper Faucet/Sandbox" },
-                  { id: "ai-copilot", icon: <MessageSquare className="h-4 w-4 text-purple-400" />, label: "AI Risk Copilot" },
-                  { id: "registry", icon: <Globe className="h-4 w-4" />, label: "Anchor Registry" },
-                  { id: "wallet", icon: <Wallet className="h-4 w-4" />, label: "Wallet" },
-                  { id: "history", icon: <Clock className="h-4 w-4" />, label: "Tx History" },
+                  { id: "overview", icon: <Activity className="h-4 w-4 shrink-0" />, label: "Overview" },
+                  { id: "deposit", icon: <Coins className="h-4 w-4 shrink-0" />, label: "Deposit & Earn" },
+                  { id: "quick-swap", icon: <RefreshCw className="h-4 w-4 text-emerald-400 shrink-0" />, label: "Quick Swap (Zapper)" },
+                  { id: "withdraw", icon: <ArrowDownLeft className="h-4 w-4 shrink-0" />, label: "Withdraw" },
+                  { id: "anchor-portal", icon: <Globe className="h-4 w-4 shrink-0" />, label: "Anchor Operations" },
+                  { id: "sandbox", icon: <RefreshCw className="h-4 w-4 shrink-0" />, label: "Casper Faucet/Sandbox" },
+                  { id: "ai-copilot", icon: <MessageSquare className="h-4 w-4 text-purple-400 shrink-0" />, label: "AI Risk Copilot" },
+                  { id: "registry", icon: <Globe className="h-4 w-4 shrink-0" />, label: "Anchor Registry" },
+                  { id: "wallet", icon: <Wallet className="h-4 w-4 shrink-0" />, label: "Wallet" },
+                  { id: "history", icon: <Clock className="h-4 w-4 shrink-0" />, label: "Tx History" },
                 ].map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setDashboardTab(tab.id as any)}
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center gap-3 ${
+                    className={`shrink-0 md:w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-all flex items-center gap-3 ${
                       dashboardTab === tab.id 
                         ? "bg-white text-black font-semibold" 
                         : "text-neutral-400 hover:text-white hover:bg-white/5"
@@ -1799,7 +1822,7 @@ export default function App() {
                 {/* 1. OVERVIEW TAB */}
                 {dashboardTab === "overview" && (
                   <div className="flex flex-col gap-6">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div className="bg-neutral-900/60 border border-white/5 rounded-2xl p-4">
                         <div className="text-xs text-neutral-500 font-semibold uppercase tracking-wider">Pool TVL (On-Chain)</div>
                         <div className="text-xl sm:text-2xl font-bold mt-1 text-white">
@@ -1833,7 +1856,7 @@ export default function App() {
                     {/* Contract Addresses */}
                     <div className="bg-neutral-950 border border-white/5 rounded-2xl p-5">
                       <h4 className="font-semibold text-sm mb-3 uppercase tracking-wider text-neutral-400">Deployed Contracts (PUBLIC)</h4>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {[
                           { label: "CoreVault", addr: CONTRACT_ADDRESSES.CORE_VAULT, color: "text-purple-400" },
                           { label: "AnchorRegistry", addr: CONTRACT_ADDRESSES.ANCHOR_REGISTRY, color: "text-cyan-400" },
@@ -1913,7 +1936,7 @@ export default function App() {
                           </button>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-2 gap-6 mt-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
                           {/* Deposit box */}
                           <div className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 flex flex-col gap-4">
                             <div className="flex justify-between text-xs">

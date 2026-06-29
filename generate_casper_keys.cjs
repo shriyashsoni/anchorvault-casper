@@ -22,7 +22,9 @@ async function main() {
     const derivedSeed = derivePath(derivationPath, seed.toString('hex')).key;
     
     // Generate Casper Keypair (Ed25519)
-    const keyPair = Keys.Ed25519.parsePrivateKey(derivedSeed);
+    const privateKey = Keys.Ed25519.parsePrivateKey(derivedSeed);
+    const publicKey = Keys.Ed25519.privateToPublicKey(privateKey);
+    const keyPair = Keys.Ed25519.parseKeyPair(publicKey, privateKey);
 
     // Write PEM files
     const secretKeyPem = keyPair.exportPrivateKeyInPem();

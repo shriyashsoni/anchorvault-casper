@@ -22,12 +22,12 @@ const {
   CLByteArray
 } = casper;
 
-// ── Contract Addresses (from .env / deployed mainnet) ──
+// ── Contract Addresses (from .env / deployed testnet/mainnet) ──
 export const CONTRACT_ADDRESSES = {
-  USDC: "CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75",
-  GOVERNANCE_TOKEN: "CDXELK3CF4GHCK6U3NETR2NNONDV3VDNKM7MT4QD5M23AHRN5X47O4IF",
-  ANCHOR_REGISTRY: "CA6NMU2ADEKVTS4XBZRLAARH7VSF7JEKWKAHNVT7WE5ZIEEKKOCOM6QO",
-  CORE_VAULT: "CDO3GSX27G6TAHLBROCC6WV4TNM6BWLFZDT2OW6RSUVBSGZJKTIISJFG",
+  USDC: import.meta.env.VITE_CASPER_USDC_CONTRACT_HASH || "103fcc98fd1eb7fcd3c204683d4ff438665dcd33b486564cd46cc90d6db7344f",
+  GOVERNANCE_TOKEN: import.meta.env.VITE_CASPER_VAULT_GOVERNANCE_TOKEN_HASH || "25b57f2e9e9786f0abeb990c4329338d8292f7ef9d571fb35f8db5f650b8d6c5",
+  ANCHOR_REGISTRY: import.meta.env.VITE_CASPER_ANCHOR_REGISTRY_CONTRACT_HASH || "39871211df19ae9474be579ebbf695589d544ae7ef60243fbe2554d3d686eed7",
+  CORE_VAULT: import.meta.env.VITE_CASPER_CORRIDOR_POOL_VAULT_HASH || "814117b2cb4f5b63a8ba1f5abb0bbfd11b576fd2b7bbaf23a101b74dbbbfeb4c",
 };
 
 export interface RegisteredAnchor {
@@ -45,28 +45,28 @@ export const ANCHOR_LIST = [
   {
     "name": "Anchora",
     "corridor": "Euro Corridor (EUR)",
-    "address": "02036be8b5983f6b128075dbc840dcb1f5eb4d0e751d7ea1593d785abc094fe45c32"
+    "address": "01B032B6CdAF00e6972ecaD1632d3Cd4B3024954aDa41d2f7828915892B1eAbC68"
   },
   {
     "name": "DeltaPay",
     "corridor": "Latam Corridor (BRL)",
-    "address": "01192e3a0937a079e0f6b3a0e69b22e11894d3a0192a839103892a01928301928a"
+    "address": "0171A4D6e0088Bf68AC0B94535f3444043C1884Cd8AA489b90F9B374BB66E5C554"
   },
   {
     "name": "ApexRemit",
     "corridor": "APAC Corridor (SGD)",
-    "address": "017283910293847583920192837465738291029384756372819203948576839201"
+    "address": "0108E3938708D2adC88B7faF99758324b469e4e0451625a5D95dD2E14Fa42eaD32"
   },
   {
     "name": "SkyRemit",
     "corridor": "Africa Corridor (NGN)",
-    "address": "019283746574839201928374657382910293847563728192039485768392019283"
+    "address": "01abF3b429dE8Bd83cd31c5F136c0Ce82e15072f54EF87c723Fe2998620EaD6a88"
   }
 ];
 
 // ── Network Config ──
-const CASPER_RPC_URL = "https://rpc.mainnet.casperlabs.io/rpc";
-const NETWORK_NAME = "casper";
+const CASPER_RPC_URL = import.meta.env.VITE_CASPER_NODE_URL || "https://rpc.testnet.casperlabs.io/rpc";
+const NETWORK_NAME = import.meta.env.VITE_CASPER_NETWORK_NAME || "casper-test";
 const casperClient = new CasperClient(CASPER_RPC_URL);
 
 // ── Types matching on-chain contract structs ──
@@ -142,17 +142,37 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
   }
 
   const result: WalletBalances = {
-    cspr: "10000.00",
-    usdc: "5000.00",
-    vaultToken: "2500.00",
-    lpShares: "150.00",
+    cspr: "0.00",
+    usdc: "0.00",
+    vaultToken: "0.00",
+    lpShares: "0.00",
   };
 
   try {
+    const clPublicKey = CLPublicKey.fromHex(publicKey);
+    
+    // Query live state root hash and main purse balance
     const stateRootHash = await casperClient.nodeClient.getStateRootHash();
-    // Additional live node queries can be added here
+    try {
+      const balanceU512 = await casperClient.balanceOfByPublicKey(clPublicKey);
+      const csprVal = (Number(balanceU512.toString()) / 1e9).toFixed(2);
+      result.cspr = csprVal;
+    } catch (e) {
+      console.warn("[Casper RPC] Main purse balance fetch warning (account may be unfunded on testnet):", e.message);
+      result.cspr = window.localStorage.getItem(`balance_cspr_${publicKey}`) || "500.00";
+    }
+
+    // Try querying contract dictionaries or local storage simulations for tokens
+    result.usdc = window.localStorage.getItem(`balance_usdc_${publicKey}`) || "25000.00";
+    result.vaultToken = window.localStorage.getItem(`balance_vault_${publicKey}`) || "10000.00";
+    result.lpShares = window.localStorage.getItem(`balance_lp_${publicKey}`) || "150.00";
+
   } catch (err: any) {
     console.warn("[Casper] Balance fetch warning, using active sandbox balances:", err.message);
+    result.cspr = window.localStorage.getItem(`balance_cspr_${publicKey}`) || "500.00";
+    result.usdc = window.localStorage.getItem(`balance_usdc_${publicKey}`) || "25000.00";
+    result.vaultToken = window.localStorage.getItem(`balance_vault_${publicKey}`) || "10000.00";
+    result.lpShares = window.localStorage.getItem(`balance_lp_${publicKey}`) || "150.00";
   }
 
   return result;
@@ -163,10 +183,14 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
 // ──────────────────────────────────────────────────
 
 export async function fetchPoolState(callerPubKey: string): Promise<PoolState | null> {
+  const totalDep = window.localStorage.getItem("pool_total_deposits") || "1250000000000";
+  const activeDr = window.localStorage.getItem("pool_active_draws") || "450000000000";
+  const reserveBal = window.localStorage.getItem("pool_reserve_balance") || "800000000000";
+  
   return {
-    totalDeposits: BigInt("1250000000000"), // 125,000 USDC (7 decimals)
-    activeDraws: BigInt("450000000000"), // 45,000 USDC
-    reserveBalance: BigInt("800000000000"), // 80,000 USDC
+    totalDeposits: BigInt(totalDep), // 125,000 USDC (7 decimals)
+    activeDraws: BigInt(activeDr), // 45,000 USDC
+    reserveBalance: BigInt(reserveBal), // 80,000 USDC
     accFeesPerShare: BigInt("1250000"),
     optimalUtilization: 8000, // 80%
     baseFeeBps: 100, // 1%
@@ -176,14 +200,15 @@ export async function fetchPoolState(callerPubKey: string): Promise<PoolState | 
 }
 
 export async function fetchLPState(callerPubKey: string): Promise<LPState | null> {
+  const shares = window.localStorage.getItem(`balance_lp_${callerPubKey}`) || "150";
   return {
-    shares: BigInt("1500000000"), // 150 LP shares
+    shares: BigInt(Math.floor(Number(shares) * 10000000)), // 150 LP shares
     feeDebt: BigInt("1200000"),
   };
 }
 
 export async function fetchPendingYield(callerPubKey: string): Promise<string> {
-  return "12.45";
+  return window.localStorage.getItem(`pending_yield_${callerPubKey}`) || "12.45";
 }
 
 export async function fetchAnchorVaultState(callerPubKey: string, anchorAddress: string): Promise<AnchorVaultState | null> {
@@ -321,14 +346,89 @@ export async function submitTransaction(signedDeployJson: string): Promise<{
 }> {
   await sleep(2000); // Simulate network confirmation time
   
+  let deployObj: any = null;
+  try {
+    deployObj = JSON.parse(signedDeployJson);
+  } catch (e) {}
+
   // Generate a realistic Casper Deploy Hash
   const hash = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  const ledger = Math.floor(Math.random() * 100000) + 1200000;
+
+  if (typeof window !== 'undefined' && deployObj) {
+    try {
+      const activeUser = window.localStorage.getItem("connected_wallet_address") || deployObj?.deploy?.header?.account || "active_user";
+      const session = deployObj?.deploy?.session?.stored_contract_by_hash || deployObj?.deploy?.session?.stored_contract_by_name || {};
+      const entryPoint = session?.entry_point || "contract_call";
+      const args = session?.args || {};
+
+      // Update balances & history based on entry point
+      let txType: any = "contract_call";
+      let amountStr = "0.00";
+      let assetStr = "CSPR";
+
+      if (entryPoint === "deposit") {
+        txType = "deposit";
+        amountStr = args.amount || "1000.00";
+        assetStr = "USDC";
+        const curUsdc = parseFloat(window.localStorage.getItem(`balance_usdc_${activeUser}`) || "25000.00");
+        const curLp = parseFloat(window.localStorage.getItem(`balance_lp_${activeUser}`) || "150.00");
+        window.localStorage.setItem(`balance_usdc_${activeUser}`, (curUsdc - parseFloat(amountStr)).toFixed(2));
+        window.localStorage.setItem(`balance_lp_${activeUser}`, (curLp + parseFloat(amountStr) / 100).toFixed(2));
+      } else if (entryPoint === "withdraw") {
+        txType = "withdrawal";
+        amountStr = args.sharesAmount || "10.00";
+        assetStr = "LP Shares";
+        const curUsdc = parseFloat(window.localStorage.getItem(`balance_usdc_${activeUser}`) || "25000.00");
+        const curLp = parseFloat(window.localStorage.getItem(`balance_lp_${activeUser}`) || "150.00");
+        window.localStorage.setItem(`balance_usdc_${activeUser}`, (curUsdc + parseFloat(amountStr) * 100).toFixed(2));
+        window.localStorage.setItem(`balance_lp_${activeUser}`, (curLp - parseFloat(amountStr)).toFixed(2));
+      } else if (entryPoint === "swap") {
+        txType = "transfer";
+        amountStr = args.amountCspr || "100.00";
+        assetStr = "CSPR ➔ USDC";
+        const curCspr = parseFloat(window.localStorage.getItem(`balance_cspr_${activeUser}`) || "500.00");
+        const curUsdc = parseFloat(window.localStorage.getItem(`balance_usdc_${activeUser}`) || "25000.00");
+        window.localStorage.setItem(`balance_cspr_${activeUser}`, (curCspr - parseFloat(amountStr)).toFixed(2));
+        window.localStorage.setItem(`balance_usdc_${activeUser}`, (curUsdc + parseFloat(amountStr) * 2.5).toFixed(2));
+      } else if (entryPoint === "lock_collateral") {
+        txType = "contract_call";
+        amountStr = args.amount || "5000.00";
+        assetStr = "VAULT Collateral";
+        const curVault = parseFloat(window.localStorage.getItem(`balance_vault_${activeUser}`) || "10000.00");
+        window.localStorage.setItem(`balance_vault_${activeUser}`, (curVault - parseFloat(amountStr)).toFixed(2));
+      } else if (entryPoint === "release_collateral") {
+        txType = "contract_call";
+        amountStr = args.amount || "5000.00";
+        assetStr = "VAULT Collateral";
+        const curVault = parseFloat(window.localStorage.getItem(`balance_vault_${activeUser}`) || "10000.00");
+        window.localStorage.setItem(`balance_vault_${activeUser}`, (curVault + parseFloat(amountStr)).toFixed(2));
+      }
+
+      const newTx: TxRecord = {
+        id: `tx-${Date.now()}`,
+        type: txType,
+        hash,
+        amount: amountStr,
+        asset: assetStr,
+        from: activeUser,
+        to: session?.hash || CONTRACT_ADDRESSES.CORE_VAULT,
+        timestamp: new Date().toISOString(),
+        status: "success",
+        ledger,
+      };
+
+      const existing = window.localStorage.getItem(`tx_history_${activeUser}`);
+      const historyArr = existing ? JSON.parse(existing) : [];
+      historyArr.unshift(newTx);
+      window.localStorage.setItem(`tx_history_${activeUser}`, JSON.stringify(historyArr));
+
+    } catch (err) {
+      console.warn("Failed to record tx in local history simulation:", err);
+    }
+  }
   
-  return {
-    hash,
-    status: "SUCCESS",
-    ledger: Math.floor(Math.random() * 100000) + 1200000,
-  };
+  return { hash, status: "SUCCESS", ledger };
 }
 
 /**
@@ -381,32 +481,48 @@ export async function offsetDefaultedDebtOnChain(anchorAddress: string): Promise
 
 export async function fetchTransactionHistory(publicKey: string, limit = 20): Promise<TxRecord[]> {
   if (!publicKey || publicKey === "mock") return [];
-  return [
-    {
-      id: "tx-1",
-      type: "deposit",
-      hash: "01a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2",
-      amount: "5000.00",
-      asset: "USDC",
-      from: publicKey,
-      to: CONTRACT_ADDRESSES.CORE_VAULT,
-      timestamp: new Date(Date.now() - 3600000).toISOString(),
-      status: "success",
-      ledger: 1245678
-    },
-    {
-      id: "tx-2",
-      type: "contract_call",
-      hash: "02b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3",
-      amount: "150000.00",
-      asset: "CSPR",
-      from: publicKey,
-      to: CONTRACT_ADDRESSES.ANCHOR_REGISTRY,
-      timestamp: new Date(Date.now() - 86400000).toISOString(),
-      status: "success",
-      ledger: 1245600
+  
+  if (typeof window !== 'undefined') {
+    const localHistory = window.localStorage.getItem(`tx_history_${publicKey}`);
+    if (localHistory) {
+      try {
+        return JSON.parse(localHistory);
+      } catch (e) {
+        console.warn("Error parsing local tx history:", e);
+      }
     }
-  ];
+
+    const defaultHistory: TxRecord[] = [
+      {
+        id: "tx-1",
+        type: "deposit",
+        hash: "01a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2",
+        amount: "5000.00",
+        asset: "USDC",
+        from: publicKey,
+        to: CONTRACT_ADDRESSES.CORE_VAULT,
+        timestamp: new Date(Date.now() - 3600000).toISOString(),
+        status: "success",
+        ledger: 1245678
+      },
+      {
+        id: "tx-2",
+        type: "contract_call",
+        hash: "02b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3",
+        amount: "150000.00",
+        asset: "CSPR",
+        from: publicKey,
+        to: CONTRACT_ADDRESSES.ANCHOR_REGISTRY,
+        timestamp: new Date(Date.now() - 86400000).toISOString(),
+        status: "success",
+        ledger: 1245600
+      }
+    ];
+    
+    window.localStorage.setItem(`tx_history_${publicKey}`, JSON.stringify(defaultHistory));
+    return defaultHistory;
+  }
+  return [];
 }
 
 export async function fetchContractEvents(contractId: string, _limit = 15): Promise<any[]> {
@@ -438,7 +554,16 @@ export function getCasperTxUrl(hash: string): string {
 // ──────────────────────────────────────────────────
 
 export async function fundWithFaucet(publicKey: string): Promise<boolean> {
-  await sleep(1000);
+  await sleep(1500);
+  if (typeof window !== 'undefined') {
+    const curCspr = parseFloat(window.localStorage.getItem(`balance_cspr_${publicKey}`) || "500.00");
+    const curUsdc = parseFloat(window.localStorage.getItem(`balance_usdc_${publicKey}`) || "25000.00");
+    const curVault = parseFloat(window.localStorage.getItem(`balance_vault_${publicKey}`) || "10000.00");
+    
+    window.localStorage.setItem(`balance_cspr_${publicKey}`, (curCspr + 1000).toFixed(2));
+    window.localStorage.setItem(`balance_usdc_${publicKey}`, (curUsdc + 5000).toFixed(2));
+    window.localStorage.setItem(`balance_vault_${publicKey}`, (curVault + 5000).toFixed(2));
+  }
   return true;
 }
 
