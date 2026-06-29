@@ -152,34 +152,36 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
   };
 
   try {
-    const clPublicKey = CLPublicKey.fromHex(publicKey);
+    const res = await fetch("https://node.testnet.casper.network/rpc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: new Date().getTime(),
+        method: "query_balance",
+        params: {
+          purse_identifier: {
+            main_purse_under_public_key: publicKey
+          }
+        }
+      })
+    });
     
-    if (!casperClient) {
-      throw new Error("CasperClient is not available in SDK v5. Mocking balance fetch.");
+    const data = await res.json();
+    if (data.result && data.result.balance) {
+      result.cspr = (Number(data.result.balance) / 1e9).toFixed(2);
+    } else {
+      result.cspr = "0.00";
     }
-    // Query live state root hash and main purse balance
-    const stateRootHash = await casperClient.nodeClient.getStateRootHash();
-    try {
-      const balanceU512 = await casperClient.balanceOfByPublicKey(clPublicKey);
-      const csprVal = (Number(balanceU512.toString()) / 1e9).toFixed(2);
-      result.cspr = csprVal;
-    } catch (e: any) {
-      console.warn("[Casper RPC] Main purse balance fetch warning (account may be unfunded on testnet):", e.message);
-      result.cspr = window.localStorage.getItem(`balance_cspr_${publicKey}`) || "500.00";
-    }
-
-    // Try querying contract dictionaries or local storage simulations for tokens
-    result.usdc = window.localStorage.getItem(`balance_usdc_${publicKey}`) || "25000.00";
-    result.vaultToken = window.localStorage.getItem(`balance_vault_${publicKey}`) || "10000.00";
-    result.lpShares = window.localStorage.getItem(`balance_lp_${publicKey}`) || "150.00";
-
   } catch (err: any) {
-    console.warn("[Casper] Balance fetch warning, using active sandbox balances:", err.message);
-    result.cspr = window.localStorage.getItem(`balance_cspr_${publicKey}`) || "500.00";
-    result.usdc = window.localStorage.getItem(`balance_usdc_${publicKey}`) || "25000.00";
-    result.vaultToken = window.localStorage.getItem(`balance_vault_${publicKey}`) || "10000.00";
-    result.lpShares = window.localStorage.getItem(`balance_lp_${publicKey}`) || "150.00";
+    console.warn("[Casper RPC] Balance fetch warning, using sandbox fallback:", err.message);
+    result.cspr = window.localStorage.getItem(`balance_cspr_${publicKey}`) || "0.00";
   }
+
+  // Tokens kept as hybrid simulation for presentation visual appeal (as approved in plan)
+  result.usdc = window.localStorage.getItem(`balance_usdc_${publicKey}`) || "25000.00";
+  result.vaultToken = window.localStorage.getItem(`balance_vault_${publicKey}`) || "10000.00";
+  result.lpShares = window.localStorage.getItem(`balance_lp_${publicKey}`) || "150.00";
 
   return result;
 }
@@ -350,25 +352,42 @@ export async function submitTransaction(signedDeployJson: string): Promise<{
   status: string;
   ledger: number;
 }> {
-  await sleep(2000); // Simulate network confirmation time
-  
   let deployObj: any = null;
   try {
     deployObj = JSON.parse(signedDeployJson);
-  } catch (e) {}
+  } catch (e) {
+    throw new Error("Invalid signed deploy JSON");
+  }
 
-  // Generate a realistic Casper Deploy Hash
-  const hash = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-  const ledger = Math.floor(Math.random() * 100000) + 1200000;
-
-  if (typeof window !== 'undefined' && deployObj) {
-    try {
+  try {
+    const res = await fetch("https://node.testnet.casper.network/rpc", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: new Date().getTime(),
+        method: "account_put_deploy",
+        params: {
+          deploy: deployObj.deploy
+        }
+      })
+    });
+    
+    const data = await res.json();
+    if (data.error) {
+      throw new Error(data.error.message || "Failed to broadcast transaction to Casper Testnet");
+    }
+    
+    const hash = data.result.deploy_hash;
+    const ledger = 0;
+    
+    // Maintain visually simulated TVL / USDC balances for demo aesthetics
+    if (typeof window !== 'undefined') {
       const activeUser = window.localStorage.getItem("connected_wallet_address") || deployObj?.deploy?.header?.account || "active_user";
       const session = deployObj?.deploy?.session?.stored_contract_by_hash || deployObj?.deploy?.session?.stored_contract_by_name || {};
       const entryPoint = session?.entry_point || "contract_call";
       const args = session?.args || {};
 
-      // Update balances & history based on entry point
       let txType: any = "contract_call";
       let amountStr = "0.00";
       let assetStr = "CSPR";
@@ -393,22 +412,8 @@ export async function submitTransaction(signedDeployJson: string): Promise<{
         txType = "transfer";
         amountStr = args.amountCspr || "100.00";
         assetStr = "CSPR ➔ USDC";
-        const curCspr = parseFloat(window.localStorage.getItem(`balance_cspr_${activeUser}`) || "500.00");
         const curUsdc = parseFloat(window.localStorage.getItem(`balance_usdc_${activeUser}`) || "25000.00");
-        window.localStorage.setItem(`balance_cspr_${activeUser}`, (curCspr - parseFloat(amountStr)).toFixed(2));
         window.localStorage.setItem(`balance_usdc_${activeUser}`, (curUsdc + parseFloat(amountStr) * 2.5).toFixed(2));
-      } else if (entryPoint === "lock_collateral") {
-        txType = "contract_call";
-        amountStr = args.amount || "5000.00";
-        assetStr = "VAULT Collateral";
-        const curVault = parseFloat(window.localStorage.getItem(`balance_vault_${activeUser}`) || "10000.00");
-        window.localStorage.setItem(`balance_vault_${activeUser}`, (curVault - parseFloat(amountStr)).toFixed(2));
-      } else if (entryPoint === "release_collateral") {
-        txType = "contract_call";
-        amountStr = args.amount || "5000.00";
-        assetStr = "VAULT Collateral";
-        const curVault = parseFloat(window.localStorage.getItem(`balance_vault_${activeUser}`) || "10000.00");
-        window.localStorage.setItem(`balance_vault_${activeUser}`, (curVault + parseFloat(amountStr)).toFixed(2));
       }
 
       const newTx: TxRecord = {
@@ -428,13 +433,13 @@ export async function submitTransaction(signedDeployJson: string): Promise<{
       const historyArr = existing ? JSON.parse(existing) : [];
       historyArr.unshift(newTx);
       window.localStorage.setItem(`tx_history_${activeUser}`, JSON.stringify(historyArr));
-
-    } catch (err) {
-      console.warn("Failed to record tx in local history simulation:", err);
     }
+    
+    return { hash, status: "SUCCESS", ledger };
+  } catch (err: any) {
+    console.error("Broadcast failed:", err);
+    throw new Error(`Broadcast failed: ${err.message}`);
   }
-  
-  return { hash, status: "SUCCESS", ledger };
 }
 
 /**
