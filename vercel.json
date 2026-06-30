@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/casper-rpc",
+      "destination": "https://node.testnet.casper.network/rpc"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
