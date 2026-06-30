@@ -4,6 +4,15 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    proxy: {
+      '/casper-rpc': {
+        target: 'https://node.testnet.casper.network',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/casper-rpc/, '/rpc')
+      }
+    }
+  },
   plugins: [
     react(),
     nodePolyfills({

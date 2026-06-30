@@ -66,7 +66,7 @@ export const ANCHOR_LIST = [
 ];
 
 // ── Network Config ──
-const CASPER_RPC_URL = import.meta.env.VITE_CASPER_NODE_URL || "https://node.testnet.casper.network/rpc";
+const CASPER_RPC_URL = import.meta.env.VITE_CASPER_NODE_URL || "/casper-rpc";
 const NETWORK_NAME = import.meta.env.VITE_CASPER_NETWORK_NAME || "casper-test";
 let casperClient: any = null;
 try {
@@ -148,7 +148,7 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
   }
 
   try {
-    const res = await fetch("https://node.testnet.casper.network/rpc", {
+    const res = await fetch(CASPER_RPC_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
