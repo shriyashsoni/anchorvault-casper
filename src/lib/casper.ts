@@ -170,6 +170,52 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
     console.warn("[Casper RPC] Balance fetch error:", err.message);
   }
 
+  // Fetch CEP18 Token Balances
+  try {
+    if (casperClient) {
+      const pubKey = CLPublicKey.fromHex(publicKey);
+      const accHashBytes = pubKey.toAccountHash();
+      // Casper CEP18 standard dict key is often the base64 encoded account hash bytes
+      const b64Hash = typeof Buffer !== 'undefined' ? Buffer.from(accHashBytes).toString('base64') : btoa(String.fromCharCode.apply(null, accHashBytes as any));
+      const rootHash = await casperClient.nodeClient.getStateRootHash();
+
+      const fetchToken = async (contractHash: string) => {
+        try {
+          const res = await fetch(CASPER_RPC_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "state_get_dictionary_item",
+              params: {
+                state_root_hash: rootHash,
+                dictionary_identifier: {
+                  ContractNamedKey: {
+                    key: `hash-${contractHash}`,
+                    dictionary_name: "balances",
+                    dictionary_item_key: b64Hash
+                  }
+                }
+              }
+            })
+          });
+          const d = await res.json();
+          if (d.result?.stored_value?.CLValue) {
+             const parsed = CLValueBuilder.fromJSON(d.result.stored_value.CLValue).value();
+             return (Number(parsed.toString()) / 1e9).toFixed(2);
+          }
+        } catch(e) {}
+        return "0.00";
+      };
+
+      result.usdc = await fetchToken(CONTRACT_ADDRESSES.USDC);
+      result.vaultToken = await fetchToken(CONTRACT_ADDRESSES.GOVERNANCE_TOKEN);
+    }
+  } catch (err: any) {
+    console.warn("[Casper RPC] Token fetch error:", err.message);
+  }
+
   return result;
 }
 
