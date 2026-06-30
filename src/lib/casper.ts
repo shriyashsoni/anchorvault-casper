@@ -135,21 +135,16 @@ export interface TxRecord {
  * Fetch real CSPR + token balances for a wallet address
  */
 export async function fetchWalletBalances(publicKey: string): Promise<WalletBalances> {
-  if (!publicKey || publicKey === "mock") {
-    return {
-      cspr: "0.00",
-      usdc: "0.00",
-      vaultToken: "0.00",
-      lpShares: "0.00",
-    };
-  }
-
   const result: WalletBalances = {
     cspr: "0.00",
     usdc: "0.00",
     vaultToken: "0.00",
     lpShares: "0.00",
   };
+  
+  if (!publicKey || publicKey === "mock") {
+    return result;
+  }
 
   try {
     const res = await fetch("https://node.testnet.casper.network/rpc", {
@@ -170,18 +165,10 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
     const data = await res.json();
     if (data.result && data.result.balance) {
       result.cspr = (Number(data.result.balance) / 1e9).toFixed(2);
-    } else {
-      result.cspr = "0.00";
     }
   } catch (err: any) {
-    console.warn("[Casper RPC] Balance fetch warning, using sandbox fallback:", err.message);
-    result.cspr = window.localStorage.getItem(`balance_cspr_${publicKey}`) || "0.00";
+    console.warn("[Casper RPC] Balance fetch error:", err.message);
   }
-
-  // Tokens kept as hybrid simulation for presentation visual appeal (as approved in plan)
-  result.usdc = window.localStorage.getItem(`balance_usdc_${publicKey}`) || "25000.00";
-  result.vaultToken = window.localStorage.getItem(`balance_vault_${publicKey}`) || "10000.00";
-  result.lpShares = window.localStorage.getItem(`balance_lp_${publicKey}`) || "150.00";
 
   return result;
 }
@@ -191,79 +178,45 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
 // ──────────────────────────────────────────────────
 
 export async function fetchPoolState(callerPubKey: string): Promise<PoolState | null> {
-  const totalDep = window.localStorage.getItem("pool_total_deposits") || "1250000000000";
-  const activeDr = window.localStorage.getItem("pool_active_draws") || "450000000000";
-  const reserveBal = window.localStorage.getItem("pool_reserve_balance") || "800000000000";
-  
   return {
-    totalDeposits: BigInt(totalDep), // 125,000 USDC (7 decimals)
-    activeDraws: BigInt(activeDr), // 45,000 USDC
-    reserveBalance: BigInt(reserveBal), // 80,000 USDC
-    accFeesPerShare: BigInt("1250000"),
-    optimalUtilization: 8000, // 80%
-    baseFeeBps: 100, // 1%
-    slope1Bps: 400, // 4%
-    slope2Bps: 5000, // 50%
+    totalDeposits: BigInt(0),
+    activeDraws: BigInt(0),
+    reserveBalance: BigInt(0),
+    accFeesPerShare: BigInt(0),
+    optimalUtilization: 8000,
+    baseFeeBps: 100,
+    slope1Bps: 400,
+    slope2Bps: 5000,
   };
 }
 
 export async function fetchLPState(callerPubKey: string): Promise<LPState | null> {
-  const shares = window.localStorage.getItem(`balance_lp_${callerPubKey}`) || "150";
   return {
-    shares: BigInt(Math.floor(Number(shares) * 10000000)), // 150 LP shares
-    feeDebt: BigInt("1200000"),
+    shares: BigInt(0),
+    feeDebt: BigInt(0),
   };
 }
 
 export async function fetchPendingYield(callerPubKey: string): Promise<string> {
-  return window.localStorage.getItem(`pending_yield_${callerPubKey}`) || "12.45";
+  return "0.00";
 }
 
 export async function fetchAnchorVaultState(callerPubKey: string, anchorAddress: string): Promise<AnchorVaultState | null> {
   return {
-    isRegistered: true,
-    creditLimit: BigInt("1500000000000"), // 150k USDC
-    activeDraw: BigInt("250000000000"), // 25k USDC
-    reputationScore: 985, // 98.5%
-    lastDrawTimestamp: Date.now() - 86400000,
+    isRegistered: false,
+    creditLimit: BigInt(0),
+    activeDraw: BigInt(0),
+    reputationScore: 0,
+    lastDrawTimestamp: 0,
   };
 }
 
 export async function fetchAnchorRegistryRecord(callerPubKey: string, anchorAddress: string): Promise<AnchorRecord | null> {
-  return {
-    isWhitelisted: true,
-    creditLimit: BigInt("1500000000000"),
-    reputationScore: 985,
-    lockedCollateral: BigInt("500000000000"), // 50k $VAULT
-    firstRegistered: Date.now() - 30 * 86400000,
-  };
+  return null;
 }
 
 export async function fetchRegisteredAnchors(callerPubKey: string): Promise<RegisteredAnchor[]> {
-  const list: RegisteredAnchor[] = [];
-  const queryList = [...ANCHOR_LIST];
-  
-  if (callerPubKey && !queryList.some(a => a.address.toLowerCase() === callerPubKey.toLowerCase())) {
-    queryList.unshift({
-      name: "Your Connected Anchor",
-      corridor: "Custom Corridor (USDC)",
-      address: callerPubKey
-    });
-  }
-  
-  for (const item of queryList) {
-    list.push({
-      name: item.name,
-      corridor: item.corridor,
-      address: item.address,
-      isWhitelisted: true,
-      creditLimit: "150000",
-      reputationScore: "98.5%",
-      lockedCollateral: "50000",
-      status: "Active"
-    });
-  }
-  return list;
+  return [];
 }
 
 // ──────────────────────────────────────────────────
@@ -381,59 +334,7 @@ export async function submitTransaction(signedDeployJson: string): Promise<{
     const hash = data.result.deploy_hash;
     const ledger = 0;
     
-    // Maintain visually simulated TVL / USDC balances for demo aesthetics
-    if (typeof window !== 'undefined') {
-      const activeUser = window.localStorage.getItem("connected_wallet_address") || deployObj?.deploy?.header?.account || "active_user";
-      const session = deployObj?.deploy?.session?.stored_contract_by_hash || deployObj?.deploy?.session?.stored_contract_by_name || {};
-      const entryPoint = session?.entry_point || "contract_call";
-      const args = session?.args || {};
-
-      let txType: any = "contract_call";
-      let amountStr = "0.00";
-      let assetStr = "CSPR";
-
-      if (entryPoint === "deposit") {
-        txType = "deposit";
-        amountStr = args.amount || "1000.00";
-        assetStr = "USDC";
-        const curUsdc = parseFloat(window.localStorage.getItem(`balance_usdc_${activeUser}`) || "25000.00");
-        const curLp = parseFloat(window.localStorage.getItem(`balance_lp_${activeUser}`) || "150.00");
-        window.localStorage.setItem(`balance_usdc_${activeUser}`, (curUsdc - parseFloat(amountStr)).toFixed(2));
-        window.localStorage.setItem(`balance_lp_${activeUser}`, (curLp + parseFloat(amountStr) / 100).toFixed(2));
-      } else if (entryPoint === "withdraw") {
-        txType = "withdrawal";
-        amountStr = args.sharesAmount || "10.00";
-        assetStr = "LP Shares";
-        const curUsdc = parseFloat(window.localStorage.getItem(`balance_usdc_${activeUser}`) || "25000.00");
-        const curLp = parseFloat(window.localStorage.getItem(`balance_lp_${activeUser}`) || "150.00");
-        window.localStorage.setItem(`balance_usdc_${activeUser}`, (curUsdc + parseFloat(amountStr) * 100).toFixed(2));
-        window.localStorage.setItem(`balance_lp_${activeUser}`, (curLp - parseFloat(amountStr)).toFixed(2));
-      } else if (entryPoint === "swap") {
-        txType = "transfer";
-        amountStr = args.amountCspr || "100.00";
-        assetStr = "CSPR ➔ USDC";
-        const curUsdc = parseFloat(window.localStorage.getItem(`balance_usdc_${activeUser}`) || "25000.00");
-        window.localStorage.setItem(`balance_usdc_${activeUser}`, (curUsdc + parseFloat(amountStr) * 2.5).toFixed(2));
-      }
-
-      const newTx: TxRecord = {
-        id: `tx-${Date.now()}`,
-        type: txType,
-        hash,
-        amount: amountStr,
-        asset: assetStr,
-        from: activeUser,
-        to: session?.hash || CONTRACT_ADDRESSES.CORE_VAULT,
-        timestamp: new Date().toISOString(),
-        status: "success",
-        ledger,
-      };
-
-      const existing = window.localStorage.getItem(`tx_history_${activeUser}`);
-      const historyArr = existing ? JSON.parse(existing) : [];
-      historyArr.unshift(newTx);
-      window.localStorage.setItem(`tx_history_${activeUser}`, JSON.stringify(historyArr));
-    }
+    // Removed localStorage mock logic. We only return the real tx hash.
     
     return { hash, status: "SUCCESS", ledger };
   } catch (err: any) {
@@ -491,48 +392,6 @@ export async function offsetDefaultedDebtOnChain(anchorAddress: string): Promise
 // ──────────────────────────────────────────────────
 
 export async function fetchTransactionHistory(publicKey: string, limit = 20): Promise<TxRecord[]> {
-  if (!publicKey || publicKey === "mock") return [];
-  
-  if (typeof window !== 'undefined') {
-    const localHistory = window.localStorage.getItem(`tx_history_${publicKey}`);
-    if (localHistory) {
-      try {
-        return JSON.parse(localHistory);
-      } catch (e) {
-        console.warn("Error parsing local tx history:", e);
-      }
-    }
-
-    const defaultHistory: TxRecord[] = [
-      {
-        id: "tx-1",
-        type: "deposit",
-        hash: "01a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2",
-        amount: "5000.00",
-        asset: "USDC",
-        from: publicKey,
-        to: CONTRACT_ADDRESSES.CORE_VAULT,
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        status: "success",
-        ledger: 1245678
-      },
-      {
-        id: "tx-2",
-        type: "contract_call",
-        hash: "02b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3",
-        amount: "150000.00",
-        asset: "CSPR",
-        from: publicKey,
-        to: CONTRACT_ADDRESSES.ANCHOR_REGISTRY,
-        timestamp: new Date(Date.now() - 86400000).toISOString(),
-        status: "success",
-        ledger: 1245600
-      }
-    ];
-    
-    window.localStorage.setItem(`tx_history_${publicKey}`, JSON.stringify(defaultHistory));
-    return defaultHistory;
-  }
   return [];
 }
 
@@ -566,15 +425,7 @@ export function getCasperTxUrl(hash: string): string {
 
 export async function fundWithFaucet(publicKey: string): Promise<boolean> {
   await sleep(1500);
-  if (typeof window !== 'undefined') {
-    const curCspr = parseFloat(window.localStorage.getItem(`balance_cspr_${publicKey}`) || "500.00");
-    const curUsdc = parseFloat(window.localStorage.getItem(`balance_usdc_${publicKey}`) || "25000.00");
-    const curVault = parseFloat(window.localStorage.getItem(`balance_vault_${publicKey}`) || "10000.00");
-    
-    window.localStorage.setItem(`balance_cspr_${publicKey}`, (curCspr + 1000).toFixed(2));
-    window.localStorage.setItem(`balance_usdc_${publicKey}`, (curUsdc + 5000).toFixed(2));
-    window.localStorage.setItem(`balance_vault_${publicKey}`, (curVault + 5000).toFixed(2));
-  }
+  // Real faucet interactions would happen here. For now, we don't mock it locally.
   return true;
 }
 
