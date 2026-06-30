@@ -3,7 +3,9 @@ import Hls from 'hls.js';
 import { Play, ArrowUpRight, ArrowRight } from 'lucide-react';
 
 const BionovaHero: React.FC = () => {
-  const videoRefs = [useRef<HTMLVideoElement>(null), useRef<HTMLVideoElement>(null), useRef<HTMLVideoElement>(null)];
+  const videoRef1 = useRef<HTMLVideoElement>(null);
+  const videoRef2 = useRef<HTMLVideoElement>(null);
+  const videoRef3 = useRef<HTMLVideoElement>(null);
   const streams = [
     'https://stream.mux.com/1RdbcBtpEUK6501pc6yaIvwo9UfSnOg02k1uHxat00xR3w.m3u8',
     'https://stream.mux.com/t1TbTB8M1VYHkhxBuap4A8Vm1x015HTHyuQxqchDBago.m3u8',
@@ -11,6 +13,7 @@ const BionovaHero: React.FC = () => {
   ];
 
   useEffect(() => {
+    const videoRefs = [videoRef1, videoRef2, videoRef3];
     videoRefs.forEach((ref, index) => {
       const video = ref.current;
       if (!video) return;
@@ -96,7 +99,7 @@ const BionovaHero: React.FC = () => {
             {/* Card 1 */}
             <div className="rounded-[1.5rem] lg:rounded-[2.5rem] bg-black flex-1 min-h-[200px] lg:min-h-0 relative overflow-hidden group p-5 lg:p-8 flex flex-col justify-between">
               <video 
-                ref={videoRefs[0]}
+                ref={videoRef1}
                 autoPlay muted loop playsInline preload="auto"
                 className="absolute inset-0 w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"
               />
@@ -122,7 +125,7 @@ const BionovaHero: React.FC = () => {
               {/* Card 2 */}
               <div className="rounded-[1.5rem] lg:rounded-[2.5rem] bg-black p-5 lg:p-8 relative overflow-hidden flex flex-col justify-between group">
                 <video 
-                  ref={videoRefs[1]}
+                  ref={videoRef2}
                   autoPlay muted loop playsInline preload="auto"
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto scale-150 opacity-70 group-hover:opacity-90 transition-opacity duration-700 pointer-events-none"
                 />
@@ -144,7 +147,7 @@ const BionovaHero: React.FC = () => {
               {/* Card 3 */}
               <div className="rounded-[1.5rem] lg:rounded-[2.5rem] bg-black p-5 lg:p-8 relative overflow-hidden flex flex-col justify-between group">
                 <video 
-                  ref={videoRefs[2]}
+                  ref={videoRef3}
                   autoPlay muted loop playsInline preload="auto"
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full w-auto h-auto scale-[2.8] opacity-70 group-hover:opacity-90 transition-opacity duration-700 pointer-events-none"
                 />
