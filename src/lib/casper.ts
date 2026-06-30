@@ -348,15 +348,30 @@ export async function submitTransaction(signedDeployJson: string): Promise<{
  */
 export async function signAndSubmitCasperDeploy(deployJson: string, activePublicKey: string): Promise<{ hash: string; status: string; ledger: number }> {
   let signedDeploy = deployJson;
-  if (typeof window !== 'undefined' && window.CasperWallet && activePublicKey && activePublicKey !== "mock") {
+  if (typeof window !== 'undefined' && activePublicKey && activePublicKey !== "mock") {
     try {
-      signedDeploy = await window.CasperWallet.sign(deployJson, activePublicKey);
+      if ((window as any).CasperWalletProvider) {
+        const provider = (window as any).CasperWalletProvider();
+        signedDeploy = await provider.sign(deployJson, activePublicKey);
+      } else if ((window as any).casperWallet) {
+        signedDeploy = await (window as any).casperWallet.sign(deployJson, activePublicKey);
+      } else if ((window as any).CasperWallet) {
+        signedDeploy = await (window as any).CasperWallet.sign(deployJson, activePublicKey);
+      } else if ((window as any).casperlabsHelper) {
+        signedDeploy = await (window as any).casperlabsHelper.sign(deployJson, activePublicKey, activePublicKey);
+      } else {
+        throw new Error("No Casper Wallet extension found for signing.");
+      }
+      
+      if (typeof signedDeploy === "object") {
+        signedDeploy = JSON.stringify(signedDeploy);
+      }
     } catch (err: any) {
       console.warn("[Casper Wallet] Sign request cancelled or failed:", err.message);
       throw new Error(`Casper Wallet signing failed: ${err.message}`);
     }
   } else {
-    console.log(`[Casper Wallet] Simulation mode: Signing deploy dynamically with connected user wallet (${activePublicKey})`);
+    throw new Error("Cannot sign transaction: Invalid or disconnected wallet context.");
   }
   
   return await submitTransaction(signedDeploy);

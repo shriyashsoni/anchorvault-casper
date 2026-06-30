@@ -73,16 +73,10 @@ const CasperWalletsKit = {
         }
       } catch (err: any) {
         console.warn("[Casper Wallet] Connection attempt warning:", err.message);
-      }
-
-      // 5. Smart Fallback for incognito/iframe/mobile/unsupported contexts
-      const fallbackKey = prompt("Casper Wallet extension not detected in this context. Please enter your Casper Public Key (or press OK to use a testnet developer account):", "0106ca7c3e55139a16f2b74070a7b4587db3ad33615462cbbcf0508535dbde4a66");
-      if (fallbackKey) {
-        window.localStorage.setItem("connected_wallet_address", fallbackKey);
-        return { address: fallbackKey, provider: "Casper Portal (Web)" };
+        throw new Error("Wallet connection rejected or failed: " + (err.message || "Unknown error"));
       }
     }
-    throw new Error("Casper Wallet extension not detected. Please install the Casper Wallet browser extension or provide a valid public key.");
+    throw new Error("Casper Wallet extension not detected. Please install the Casper Wallet browser extension.");
   },
   signTransaction: async (tx: any, opts: any) => {
     if (typeof window !== 'undefined' && opts?.address) {
@@ -102,9 +96,9 @@ const CasperWalletsKit = {
         }
       } catch (err: any) {
         console.warn("[Casper Wallet] Sign warning:", err.message);
+        throw new Error("Transaction signing cancelled or failed: " + err.message);
       }
-      // Fallback simulation for prompt-connected / mock wallets
-      return { signedTxXdr: tx };
+      throw new Error("No Casper Wallet extension found for signing.");
     }
     throw new Error("Casper Wallet not connected. Please connect your wallet first.");
   }
