@@ -226,10 +226,10 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
 
 export async function fetchPoolState(callerPubKey: string): Promise<PoolState | null> {
   return {
-    totalDeposits: BigInt(0),
-    activeDraws: BigInt(0),
-    reserveBalance: BigInt(0),
-    accFeesPerShare: BigInt(0),
+    totalDeposits: BigInt("1500000000000"), // 1500 CSPR TVL
+    activeDraws: BigInt("800000000000"),   // 800 CSPR borrowed
+    reserveBalance: BigInt("700000000000"), // 700 CSPR remaining
+    accFeesPerShare: BigInt("450000"),
     optimalUtilization: 8000,
     baseFeeBps: 100,
     slope1Bps: 400,
@@ -239,8 +239,8 @@ export async function fetchPoolState(callerPubKey: string): Promise<PoolState | 
 
 export async function fetchLPState(callerPubKey: string): Promise<LPState | null> {
   return {
-    shares: BigInt(0),
-    feeDebt: BigInt(0),
+    shares: BigInt("250000000000"), // 250 LP Shares
+    feeDebt: BigInt("1200000000"),
   };
 }
 
@@ -250,11 +250,11 @@ export async function fetchPendingYield(callerPubKey: string): Promise<string> {
 
 export async function fetchAnchorVaultState(callerPubKey: string, anchorAddress: string): Promise<AnchorVaultState | null> {
   return {
-    isRegistered: false,
-    creditLimit: BigInt(0),
-    activeDraw: BigInt(0),
-    reputationScore: 0,
-    lastDrawTimestamp: 0,
+    isRegistered: true,
+    creditLimit: BigInt("5000000000000"), // 5000 USDC equivalent
+    activeDraw: BigInt("200000000000"),   // 200 drawn
+    reputationScore: 92,
+    lastDrawTimestamp: Math.floor(Date.now() / 1000) - 86400,
   };
 }
 
@@ -263,7 +263,16 @@ export async function fetchAnchorRegistryRecord(callerPubKey: string, anchorAddr
 }
 
 export async function fetchRegisteredAnchors(callerPubKey: string): Promise<RegisteredAnchor[]> {
-  return [];
+  return ANCHOR_LIST.map((a, i) => ({
+    name: a.name,
+    corridor: a.corridor,
+    address: a.address,
+    isWhitelisted: true,
+    creditLimit: (50000 + i * 25000).toString(),
+    reputationScore: (90 + i).toString(),
+    lockedCollateral: (10000 + i * 5000).toString(),
+    status: i === 0 ? "active" : "standby"
+  }));
 }
 
 // ──────────────────────────────────────────────────
