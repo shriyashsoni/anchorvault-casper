@@ -281,7 +281,15 @@ function createCasperDeployJson(
 ): string {
   try {
     const senderKey = CLPublicKey.fromHex(activePublicKey);
-    const runtimeArgs = RuntimeArgs.fromMap({});
+    let runtimeArgs = RuntimeArgs.fromMap({});
+    if (args) {
+      if (args.amount) runtimeArgs.insert("amount", CLValueBuilder.u256(args.amount));
+      if (args.amountCspr) runtimeArgs.insert("amount", CLValueBuilder.u256(args.amountCspr));
+      if (args.sharesAmount) runtimeArgs.insert("shares_amount", CLValueBuilder.u256(args.sharesAmount));
+      if (args.newLimit) runtimeArgs.insert("new_limit", CLValueBuilder.u256(args.newLimit));
+      if (args.to) runtimeArgs.insert("to", CLValueBuilder.key(CLPublicKey.fromHex(args.to)));
+    }
+    
     const deploy = DeployUtil.makeDeploy(
       new DeployUtil.DeployParams(senderKey, NETWORK_NAME),
       DeployUtil.ExecutableDeployItem.newStoredContractByHash(
@@ -394,24 +402,28 @@ export async function submitTransaction(signedDeployJson: string): Promise<{
  * Dynamically signs a deploy with the connected user's Casper Wallet and submits it.
  */
 export async function signAndSubmitCasperDeploy(deployJson: string, activePublicKey: string): Promise<{ hash: string; status: string; ledger: number }> {
-  let signedDeploy = deployJson;
+  let finalDeployJson = deployJson;
   if (typeof window !== 'undefined' && activePublicKey && activePublicKey !== "mock") {
     try {
       if ((window as any).CasperWalletProvider) {
         const provider = (window as any).CasperWalletProvider();
-        signedDeploy = await provider.sign(deployJson, activePublicKey);
+        const signRes = await provider.sign(deployJson, activePublicKey);
+        if (signRes.cancelled) throw new Error("Transaction cancelled by user");
+        
+        let deploy = DeployUtil.deployFromJson(JSON.parse(deployJson)).unwrap();
+        deploy = DeployUtil.setSignature(deploy, signRes.signature, CLPublicKey.fromHex(activePublicKey));
+        finalDeployJson = JSON.stringify(DeployUtil.deployToJson(deploy));
       } else if ((window as any).casperWallet) {
-        signedDeploy = await (window as any).casperWallet.sign(deployJson, activePublicKey);
-      } else if ((window as any).CasperWallet) {
-        signedDeploy = await (window as any).CasperWallet.sign(deployJson, activePublicKey);
+        const signRes = await (window as any).casperWallet.sign(deployJson, activePublicKey);
+        if (signRes.cancelled) throw new Error("Transaction cancelled by user");
+        let deploy = DeployUtil.deployFromJson(JSON.parse(deployJson)).unwrap();
+        deploy = DeployUtil.setSignature(deploy, signRes.signature, CLPublicKey.fromHex(activePublicKey));
+        finalDeployJson = JSON.stringify(DeployUtil.deployToJson(deploy));
       } else if ((window as any).casperlabsHelper) {
-        signedDeploy = await (window as any).casperlabsHelper.sign(deployJson, activePublicKey, activePublicKey);
+        const signedDeploy = await (window as any).casperlabsHelper.sign(deployJson, activePublicKey, activePublicKey);
+        finalDeployJson = typeof signedDeploy === "string" ? signedDeploy : JSON.stringify(signedDeploy);
       } else {
         throw new Error("No Casper Wallet extension found for signing.");
-      }
-      
-      if (typeof signedDeploy === "object") {
-        signedDeploy = JSON.stringify(signedDeploy);
       }
     } catch (err: any) {
       console.warn("[Casper Wallet] Sign request cancelled or failed:", err.message);
@@ -421,7 +433,7 @@ export async function signAndSubmitCasperDeploy(deployJson: string, activePublic
     throw new Error("Cannot sign transaction: Invalid or disconnected wallet context.");
   }
   
-  return await submitTransaction(signedDeploy);
+  return await submitTransaction(finalDeployJson);
 }
 
 export async function mintVaultToken(userPubKey: string, amount: string): Promise<string> {
@@ -466,15 +478,15 @@ export async function fetchContractEvents(contractId: string, _limit = 15): Prom
 // ──────────────────────────────────────────────────
 
 export function getCasperExpertTxUrl(hash: string): string {
-  return `https://cspr.live/deploy/${hash}`;
+  return `https://testnet.cspr.live/deploy/${hash}`;
 }
 
 export function getCasperExpertAccountUrl(address: string): string {
-  return `https://cspr.live/account/${address}`;
+  return `https://testnet.cspr.live/account/${address}`;
 }
 
 export function getCasperExpertContractUrl(contractId: string): string {
-  return `https://cspr.live/contract/${contractId}`;
+  return `https://testnet.cspr.live/contract/${contractId}`;
 }
 
 export function getCasperTxUrl(hash: string): string {
