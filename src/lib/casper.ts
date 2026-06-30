@@ -19,7 +19,8 @@ const {
   DeployUtil,
   CLValueBuilder,
   CLPublicKey,
-  CLByteArray
+  CLByteArray,
+  CLValueParsers
 } = casper;
 
 // ── Contract Addresses (from .env / deployed testnet/mainnet) ──
@@ -65,7 +66,7 @@ export const ANCHOR_LIST = [
 ];
 
 // ── Network Config ──
-const CASPER_RPC_URL = import.meta.env.VITE_CASPER_NODE_URL || "https://rpc.testnet.casperlabs.io/rpc";
+const CASPER_RPC_URL = import.meta.env.VITE_CASPER_NODE_URL || "https://node.testnet.casper.network/rpc";
 const NETWORK_NAME = import.meta.env.VITE_CASPER_NETWORK_NAME || "casper-test";
 let casperClient: any = null;
 try {
@@ -202,7 +203,7 @@ export async function fetchWalletBalances(publicKey: string): Promise<WalletBala
           });
           const d = await res.json();
           if (d.result?.stored_value?.CLValue) {
-             const parsed = CLValueBuilder.fromJSON(d.result.stored_value.CLValue).value();
+             const parsed = CLValueParsers.fromJSON(d.result.stored_value.CLValue).unwrap().value();
              return (Number(parsed.toString()) / 1e9).toFixed(2);
           }
         } catch(e) {}
