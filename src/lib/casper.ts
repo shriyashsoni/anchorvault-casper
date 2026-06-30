@@ -486,7 +486,7 @@ export function getCasperExpertAccountUrl(address: string): string {
 }
 
 export function getCasperExpertContractUrl(contractId: string): string {
-  return `https://testnet.cspr.live/contract/${contractId}`;
+  return `https://testnet.cspr.live/contract-package/${contractId}`;
 }
 
 export function getCasperTxUrl(hash: string): string {
