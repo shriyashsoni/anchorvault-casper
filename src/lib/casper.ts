@@ -368,7 +368,7 @@ export async function submitTransaction(signedDeployJson: string): Promise<{
   }
 
   try {
-    const res = await fetch("https://node.testnet.casper.network/rpc", {
+    const res = await fetch(CASPER_RPC_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -401,7 +401,7 @@ export async function submitTransaction(signedDeployJson: string): Promise<{
 /**
  * Dynamically signs a deploy with the connected user's Casper Wallet and submits it.
  */
-export async function signAndSubmitCasperDeploy(deployJson: string, activePublicKey: string): Promise<{ hash: string; status: string; ledger: number }> {
+export async function signCasperDeploy(deployJson: string, activePublicKey: string): Promise<string> {
   let finalDeployJson = deployJson;
   if (typeof window !== 'undefined' && activePublicKey && activePublicKey !== "mock") {
     try {
@@ -432,7 +432,11 @@ export async function signAndSubmitCasperDeploy(deployJson: string, activePublic
   } else {
     throw new Error("Cannot sign transaction: Invalid or disconnected wallet context.");
   }
-  
+  return finalDeployJson;
+}
+
+export async function signAndSubmitCasperDeploy(deployJson: string, activePublicKey: string): Promise<{ hash: string; status: string; ledger: number }> {
+  const finalDeployJson = await signCasperDeploy(deployJson, activePublicKey);
   return await submitTransaction(finalDeployJson);
 }
 

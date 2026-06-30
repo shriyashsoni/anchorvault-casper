@@ -81,24 +81,12 @@ const CasperWalletsKit = {
   signTransaction: async (tx: any, opts: any) => {
     if (typeof window !== 'undefined' && opts?.address) {
       try {
-        if ((window as any).CasperWalletProvider) {
-          const provider = (window as any).CasperWalletProvider();
-          const signedDeploy = await provider.sign(tx, opts.address);
-          return { signedTxXdr: signedDeploy };
-        }
-        if ((window as any).CasperWallet) {
-          const signedDeploy = await (window as any).CasperWallet.sign(tx, opts.address);
-          return { signedTxXdr: signedDeploy };
-        }
-        if ((window as any).casperlabsHelper) {
-          const signedDeploy = await (window as any).casperlabsHelper.sign(tx, opts.address);
-          return { signedTxXdr: signedDeploy };
-        }
+        const signedDeploy = await signCasperDeploy(tx, opts.address);
+        return { signedTxXdr: signedDeploy };
       } catch (err: any) {
         console.warn("[Casper Wallet] Sign warning:", err.message);
         throw new Error("Transaction signing cancelled or failed: " + err.message);
       }
-      throw new Error("No Casper Wallet extension found for signing.");
     }
     throw new Error("Casper Wallet not connected. Please connect your wallet first.");
   }
@@ -135,6 +123,7 @@ import {
   offsetDefaultedDebtOnChain,
   adjustCreditLimitOnChain,
   buildNativeSwapTransaction,
+  signCasperDeploy,
   type WalletBalances,
   type PoolState,
   type TxRecord,
