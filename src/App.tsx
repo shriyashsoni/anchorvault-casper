@@ -479,7 +479,7 @@ export default function App() {
     try {
       CasperWalletsKit.init({
         modules: defaultModules(),
-        network: Networks.PUBLIC
+        network: Networks.TESTNET
       });
     } catch (err) {
       console.warn("CasperWalletsKit initialization error/warning:", err);
@@ -705,7 +705,7 @@ export default function App() {
       setTxStep("signing");
 
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
-        networkPassphrase: "Public Global Casper Network ; September 2015",
+        networkPassphrase: "casper-test",
         address: walletAddress,
         clickRef: clickRef,
       });
@@ -763,7 +763,7 @@ export default function App() {
       setTxStep("signing");
 
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
-        networkPassphrase: "Public Global Casper Network ; September 2015",
+        networkPassphrase: "casper-test",
         address: walletAddress,
         clickRef: clickRef,
       });
@@ -803,7 +803,7 @@ export default function App() {
       setTxStep("signing");
 
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
-        networkPassphrase: "Public Global Casper Network ; September 2015",
+        networkPassphrase: "casper-test",
         address: walletAddress,
       });
       setTxProgress(60);
@@ -853,7 +853,7 @@ export default function App() {
       setTxStep("signing");
 
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
-        networkPassphrase: "Public Global Casper Network ; September 2015",
+        networkPassphrase: "casper-test",
         address: walletAddress,
       });
       setTxProgress(60);
@@ -909,7 +909,7 @@ export default function App() {
       setTxStep("signing");
 
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
-        networkPassphrase: "Public Global Casper Network ; September 2015",
+        networkPassphrase: "casper-test",
         address: walletAddress,
       });
       setTxProgress(60);
@@ -1184,7 +1184,7 @@ export default function App() {
 
       // Step 2: Sign with connected wallet (Casper Wallet/CasperWalletsKit)
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
-        networkPassphrase: "Public Global Casper Network ; September 2015",
+        networkPassphrase: "casper-test",
         address: walletAddress,
         clickRef: clickRef,
       });
@@ -1236,7 +1236,7 @@ export default function App() {
       setTxStep("signing");
 
       const { signedTxXdr } = await CasperWalletsKit.signTransaction(txXDR, {
-        networkPassphrase: "Public Global Casper Network ; September 2015",
+        networkPassphrase: "casper-test",
         address: walletAddress,
         clickRef: clickRef,
       });
